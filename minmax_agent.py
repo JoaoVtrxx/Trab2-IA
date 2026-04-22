@@ -8,15 +8,15 @@ Função de avaliação heurística:
 
 Onde:
     f1(s) = Diferença de peças normalizada
-            f1 = (minas - adversárias) / (minas + adversárias)
+            f1 = (minhas - adversárias) / (minhas + adversárias)
             Peso w1 = 1.0  → métrica base, sempre relevante
 
-    f2(s) = Mobilidade relativa (# jogadas disponíveis)
+    f2(s) = Mobilidade relativa (número de jogadas disponíveis)
             f2 = (mob_minha - mob_adv) / (mob_minha + mob_adv + ε)
             Peso w2 = 3.0  → mobilidade é crítica no meio-jogo;
                              ter mais opções evita posições forçadas
 
-    f3(s) = Controle de cantos e bordas
+    f3(s) = Controle de cantos | Controle de bordas
             cantos: peso altíssimo (capturam definitivamente)
             bordas: peso médio (estáveis, difíceis de reverter)
             Peso w3 = 5.0  → cantos são irreversíveis e dominantes;
@@ -178,7 +178,7 @@ class MinMaxAgent:
                                     alpha, beta, False,
                                     level + 1, str(move))
 
-                if self.verbose and level <= 1:
+                if self.verbose:
                     print(f"{indent}  [MAX nível={level} move={move}] val={val:.3f}  α={alpha:.3f}  β={beta:.3f}")
 
                 max_val = max(max_val, val)
@@ -187,7 +187,7 @@ class MinMaxAgent:
                 # Poda β
                 if alpha >= beta:
                     self.prune_count += 1
-                    if self.verbose and level <= 1:
+                    if self.verbose:
                         print(f"{indent}  ✂ PODA β em {move}: α({alpha:.3f}) ≥ β({beta:.3f})")
                     break
 
@@ -205,7 +205,7 @@ class MinMaxAgent:
                                     alpha, beta, True,
                                     level + 1, str(move))
 
-                if self.verbose and level <= 1:
+                if self.verbose:
                     print(f"{indent}  [MIN nível={level} move={move}] val={val:.3f}  α={alpha:.3f}  β={beta:.3f}")
 
                 min_val = min(min_val, val)
@@ -214,7 +214,7 @@ class MinMaxAgent:
                 # Poda α
                 if alpha >= beta:
                     self.prune_count += 1
-                    if self.verbose and level <= 1:
+                    if self.verbose:
                         print(f"{indent}  ✂ PODA α em {move}: α({alpha:.3f}) ≥ β({beta:.3f})")
                     break
 
