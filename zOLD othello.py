@@ -341,6 +341,8 @@ def torneio(partidas=10, regras_avancadas=False, n=6):
             else:
                 # Passa a vez
                 game.jogador_atual = B if game.jogador_atual == P else P
+            
+            game.imprimir_tabuleiro()
 
         pontos = game.obter_pontuacao(game.tabuleiro)
         vencedor = P if pontos[P] > pontos[B] else B if pontos[B] > pontos[P] else None
