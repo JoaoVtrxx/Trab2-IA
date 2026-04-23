@@ -15,7 +15,7 @@ import statistics
 from typing import Tuple, Optional, List, Dict
 from dataclasses import dataclass, field
 
-from othello_game import OthelloGame
+from othello_game import Othello
 from minmax_agent import MinMaxAgent
 from mcts_agent import MCTSAgent
 
@@ -37,23 +37,23 @@ class GameResult:
 # Jogador de uma partida completa
 # ---------------------------------------------------------------------------
 
-def play_game(agent1, agent2, size: int = 6,
-              corner_bonus: bool = False,
+def play_game(agent1, agent2, tamanho: int = 6,
+              bonus_canto: bool = False,
               verbose: bool = False) -> GameResult:
     """
     Executa uma partida entre agent1 (jogador 1) e agent2 (jogador -1).
     Retorna GameResult com estatísticas detalhadas.
     """
-    game = OthelloGame(size=size, corner_bonus=corner_bonus)
+    game = Othello(tamanho=tamanho, bonus_canto=bonus_canto)
     times1: List[float] = []
     times2: List[float] = []
     moves_count = 0
     consecutive_passes = 0
 
     while not game.is_terminal():
-        player = game.current_player
-        agent  = agent1 if player == 1 else agent2
-        times  = times1 if player == 1 else times2
+        jogador = game.jogador_atual
+        agent  = agent1 if jogador == 1 else agent2
+        times  = times1 if jogador == 1 else times2
 
         t0   = time.time()
         move = agent.choose_move(game)
@@ -65,16 +65,16 @@ def play_game(agent1, agent2, size: int = 6,
             consecutive_passes += 1
             if consecutive_passes >= 2:
                 break
-            game.switch_player()
+            game.switch_jogador()
             continue
 
         consecutive_passes = 0
-        game.make_move(move[0], move[1], player)
+        game.executa_jogada(move[0], move[1], jogador)
         moves_count += 1
-        game.switch_player()
+        game.switch_jogador()
 
         if verbose:
-            print(f"  Jogador {player} → {move}  ({elapsed:.3f}s)")
+            print(f"  Jogador {jogador} → {move}  ({elapsed:.3f}s)")
             print(game)
             print()
 
@@ -91,16 +91,16 @@ def play_game(agent1, agent2, size: int = 6,
 # Torneio principal
 # ---------------------------------------------------------------------------
 
-def run_tournament(n_games: int = 10, size: int = 6,
+def run_tournament(n_games: int = 10, tamanho: int = 6,
                    minmax_depth: int = 4, mcts_sims: int = 300,
-                   corner_bonus: bool = False) -> None:
+                   bonus_canto: bool = False) -> None:
     """
     Realiza n_games partidas alternando quem é o jogador 1 (preto).
     Exibe estatísticas completas ao final.
     """
     print("\n" + "="*65)
     print("  TORNEIO: MinMax(α-β) vs MCTS")
-    print(f"  Partidas={n_games}  Tabuleiro={size}x{size}  "
+    print(f"  Partidas={n_games}  Tabuleiro={tamanho}x{tamanho}  "
           f"Profundidade_MM={minmax_depth}  Sims_MCTS={mcts_sims}")
     print("="*65 + "\n")
 
@@ -120,18 +120,18 @@ def run_tournament(n_games: int = 10, size: int = 6,
             mm_color   = -1
             mcts_color = 1
 
-        mm_agent   = MinMaxAgent(player=mm_color,   depth=minmax_depth)
-        mcts_agent = MCTSAgent(player=mcts_color, max_sims=mcts_sims,
+        mm_agent   = MinMaxAgent(jogador=mm_color,   depth=minmax_depth)
+        mcts_agent = MCTSAgent(jogador=mcts_color, max_sims=mcts_sims,
                                rollout_type="heuristic")
 
         if mm_color == 1:
-            result = play_game(mm_agent, mcts_agent, size=size,
-                               corner_bonus=corner_bonus)
+            result = play_game(mm_agent, mcts_agent, tamanho=tamanho,
+                               bonus_canto=bonus_canto)
             all_times_mm.extend(result.times_p1)
             all_times_mcts.extend(result.times_p2)
         else:
-            result = play_game(mcts_agent, mm_agent, size=size,
-                               corner_bonus=corner_bonus)
+            result = play_game(mcts_agent, mm_agent, tamanho=tamanho,
+                               bonus_canto=bonus_canto)
             all_times_mm.extend(result.times_p2)
             all_times_mcts.extend(result.times_p1)
 
@@ -174,7 +174,7 @@ def run_tournament(n_games: int = 10, size: int = 6,
 # ---------------------------------------------------------------------------
 
 def depth_impact_analysis(depths: List[int] = [3, 4, 5],
-                           n_games: int = 6, size: int = 6) -> None:
+                           n_games: int = 6, tamanho: int = 6) -> None:
     """
     Avalia o impacto da profundidade do MinMax contra MCTS fixo.
     """
@@ -182,25 +182,25 @@ def depth_impact_analysis(depths: List[int] = [3, 4, 5],
     print("  ANÁLISE: Impacto da Profundidade no MinMax")
     print("="*65)
 
-    base_mcts = MCTSAgent(player=-1, max_sims=300, rollout_type="heuristic")
+    base_mcts = MCTSAgent(jogador=-1, max_sims=300, rollout_type="heuristic")
 
     for depth in depths:
         wins_mm = 0
         total_time = []
 
         for i in range(n_games):
-            mm = MinMaxAgent(player=1 if i%2==0 else -1, depth=depth)
-            mcts = MCTSAgent(player=-1 if i%2==0 else 1,
+            mm = MinMaxAgent(jogador=1 if i%2==0 else -1, depth=depth)
+            mcts = MCTSAgent(jogador=-1 if i%2==0 else 1,
                              max_sims=300, rollout_type="heuristic")
 
-            if mm.player == 1:
-                r = play_game(mm, mcts, size=size)
+            if mm.jogador == 1:
+                r = play_game(mm, mcts, tamanho=tamanho)
                 total_time.extend(r.times_p1)
             else:
-                r = play_game(mcts, mm, size=size)
+                r = play_game(mcts, mm, tamanho=tamanho)
                 total_time.extend(r.times_p2)
 
-            if r.winner == mm.player:
+            if r.winner == mm.jogador:
                 wins_mm += 1
 
         avg_ms = statistics.mean(total_time)*1000 if total_time else 0
@@ -214,7 +214,7 @@ def depth_impact_analysis(depths: List[int] = [3, 4, 5],
 # ---------------------------------------------------------------------------
 
 def sims_impact_analysis(sims_list: List[int] = [100, 300, 600],
-                         n_games: int = 6, size: int = 6) -> None:
+                         n_games: int = 6, tamanho: int = 6) -> None:
     """
     Avalia o impacto do número de simulações do MCTS contra MinMax fixo.
     """
@@ -227,18 +227,18 @@ def sims_impact_analysis(sims_list: List[int] = [100, 300, 600],
         total_time = []
 
         for i in range(n_games):
-            mcts = MCTSAgent(player=1 if i%2==0 else -1,
+            mcts = MCTSAgent(jogador=1 if i%2==0 else -1,
                              max_sims=sims, rollout_type="heuristic")
-            mm = MinMaxAgent(player=-1 if i%2==0 else 1, depth=4)
+            mm = MinMaxAgent(jogador=-1 if i%2==0 else 1, depth=4)
 
-            if mcts.player == 1:
-                r = play_game(mcts, mm, size=size)
+            if mcts.jogador == 1:
+                r = play_game(mcts, mm, tamanho=tamanho)
                 total_time.extend(r.times_p1)
             else:
-                r = play_game(mm, mcts, size=size)
+                r = play_game(mm, mcts, tamanho=tamanho)
                 total_time.extend(r.times_p2)
 
-            if r.winner == mcts.player:
+            if r.winner == mcts.jogador:
                 wins_mcts += 1
 
         avg_ms = statistics.mean(total_time)*1000 if total_time else 0
@@ -259,10 +259,10 @@ def demo_single_game(verbose_mm: bool = True) -> None:
     print("  DEMO: Partida com árvore Min-Max visível (prof=3)")
     print("="*65 + "\n")
 
-    mm   = MinMaxAgent(player=1,  depth=3, verbose=verbose_mm)
-    mcts = MCTSAgent(player=-1, max_sims=200, rollout_type="heuristic")
+    mm   = MinMaxAgent(jogador=1,  depth=3, verbose=verbose_mm)
+    mcts = MCTSAgent(jogador=-1, max_sims=200, rollout_type="heuristic")
 
-    game = OthelloGame(size=6)
+    game = Othello(tamanho=6)
     print("Estado inicial:")
     print(game)
     print()
@@ -271,26 +271,26 @@ def demo_single_game(verbose_mm: bool = True) -> None:
     consecutive_passes = 0
 
     while not game.is_terminal():
-        player = game.current_player
-        agent  = mm if player == 1 else mcts
+        jogador = game.jogador_atual
+        agent  = mm if jogador == 1 else mcts
 
         move = agent.choose_move(game)
 
         if move is None:
             consecutive_passes += 1
-            print(f"  Jogador {'MM' if player==1 else 'MCTS'} passa a vez.")
+            print(f"  Jogador {'MM' if jogador==1 else 'MCTS'} passa a vez.")
             if consecutive_passes >= 2:
                 break
-            game.switch_player()
+            game.switch_jogador()
             continue
 
         consecutive_passes = 0
-        game.make_move(move[0], move[1], player)
+        game.executa_jogada(move[0], move[1], jogador)
         move_number += 1
-        game.switch_player()
+        game.switch_jogador()
 
-        label = "MinMax" if player == 1 else "MCTS  "
-        print(f"\n  [{move_number:02d}] {label} (jogador {player:+d}) → {move}")
+        label = "MinMax" if jogador == 1 else "MCTS  "
+        print(f"\n  [{move_number:02d}] {label} (jogador {jogador:+d}) → {move}")
         print(game)
 
     scores = game.get_score_dict()
@@ -308,8 +308,8 @@ if __name__ == "__main__":
     demo_single_game(verbose_mm=True)
 
     # 2. Torneio principal (10 partidas)
-    run_tournament(n_games=10, size=6, minmax_depth=4,
-                   mcts_sims=300, corner_bonus=False)
+    run_tournament(n_games=10, tamanho=6, minmax_depth=4,
+                   mcts_sims=300, bonus_canto=False)
 
     # 3. Análise de profundidade do MinMax
     depth_impact_analysis(depths=[3, 4, 5], n_games=6)

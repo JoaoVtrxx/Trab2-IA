@@ -28,7 +28,7 @@ import time
 import random
 from typing import Optional, List, Tuple
 
-from othello_game import OthelloGame
+from othello_game import Othello
 
 
 C_UCT = math.sqrt(2)    # Constante de exploração UCT
@@ -45,7 +45,7 @@ class MCTSNode:
     Atributos
     ----------
     game    : estado do jogo associado a este nó
-    player  : jogador que VAI jogar a partir deste nó
+    jogador  : jogador que VAI jogar a partir deste nó
     parent  : nó pai (None para a raiz)
     move    : jogada que levou do pai a este nó
     children: filhos expandidos
@@ -54,15 +54,15 @@ class MCTSNode:
     visits  : número de vezes que o nó foi visitado
     """
 
-    def __init__(self, game: OthelloGame, player: int,
+    def __init__(self, game: Othello, jogador: int,
                  parent: Optional["MCTSNode"] = None,
                  move: Optional[Tuple[int, int]] = None):
         self.game    = game
-        self.player  = player         # Jogador cujo turno é neste nó
+        self.jogador  = jogador         # Jogador cujo turno é neste nó
         self.parent  = parent
         self.move    = move
         self.children: List["MCTSNode"] = []
-        self.untried: List[Tuple[int, int]] = game.get_valid_moves(player)
+        self.untried: List[Tuple[int, int]] = game.movimentos_validoos(jogador)
         random.shuffle(self.untried)  # Aleatoriedade na expansão
         self.wins   = 0.0
         self.visits = 0
@@ -108,15 +108,15 @@ class MCTSAgent:
 
     Parâmetros
     ----------
-    player       : identidade do agente (1 ou -1)
+    jogador       : identidade do agente (1 ou -1)
     max_sims     : número máximo de simulações por jogada
     max_time     : tempo máximo em segundos por jogada
     rollout_type : 'random' (aleatório puro) ou 'heuristic' (prefere cantos)
     """
 
-    def __init__(self, player: int, max_sims: int = 500,
+    def __init__(self, jogador: int, max_sims: int = 500,
                  max_time: float = 2.0, rollout_type: str = "heuristic"):
-        self.player      = player
+        self.jogador      = jogador
         self.max_sims    = max_sims
         self.max_time    = max_time
         self.rollout_type = rollout_type
@@ -129,20 +129,20 @@ class MCTSAgent:
     # Interface pública
     # ------------------------------------------------------------------
 
-    def choose_move(self, game: OthelloGame) -> Optional[Tuple[int, int]]:
+    def choose_move(self, game: Othello) -> Optional[Tuple[int, int]]:
         """
         Executa as simulações MCTS e retorna a melhor jogada encontrada.
         Retorna None se não houver jogadas (passa a vez).
         """
-        valid_moves = game.get_valid_moves(self.player)
-        if not valid_moves:
+        valido_moves = game.movimentos_validoos(self.jogador)
+        if not valido_moves:
             return None
 
         start = time.time()
         self.sims_done = 0
 
         # Cria raiz da árvore com o estado atual
-        root = MCTSNode(game.clone(), self.player)
+        root = MCTSNode(game.clone(), self.jogador)
 
         # --- Loop principal de simulação ---
         while (self.sims_done < self.max_sims and
@@ -196,15 +196,15 @@ class MCTSAgent:
         """
         move = node.untried.pop()     # Remove uma jogada não tentada
         child_game = node.game.clone()
-        child_game.make_move(move[0], move[1], node.player)
-        next_player = -node.player
+        child_game.executa_jogada(move[0], move[1], node.jogador)
+        next_jogador = -node.jogador
 
         # Se o próximo jogador não tem movimentos, o turno volta
-        if not child_game.get_valid_moves(next_player):
-            next_player = node.player
+        if not child_game.movimentos_validoos(next_jogador):
+            next_jogador = node.jogador
 
-        child_game.current_player = next_player
-        child = MCTSNode(child_game, next_player, parent=node, move=move)
+        child_game.jogador_atual = next_jogador
+        child = MCTSNode(child_game, next_jogador, parent=node, move=move)
         node.children.append(child)
         return child
 
@@ -216,38 +216,38 @@ class MCTSAgent:
         """
         Joga uma partida completa aleatória (ou heurística) a partir
         do estado do nó. Retorna:
-            +1 se self.player venceu
+            +1 se self.jogador venceu
             -1 se o adversário venceu
              0 se empate
         """
         sim_game   = node.game.clone()
-        sim_player = node.player
+        sim_jogador = node.jogador
 
         while not sim_game.is_terminal():
-            moves = sim_game.get_valid_moves(sim_player)
+            moves = sim_game.movimentos_validoos(sim_jogador)
 
             if not moves:
                 # Passa a vez
-                sim_player = -sim_player
-                moves = sim_game.get_valid_moves(sim_player)
+                sim_jogador = -sim_jogador
+                moves = sim_game.movimentos_validoos(sim_jogador)
                 if not moves:
                     break           # Ambos sem jogadas → fim
 
-            move = self._rollout_policy(sim_game, moves, sim_player)
-            sim_game.make_move(move[0], move[1], sim_player)
-            sim_player = -sim_player
+            move = self._rollout_policy(sim_game, moves, sim_jogador)
+            sim_game.executa_jogada(move[0], move[1], sim_jogador)
+            sim_jogador = -sim_jogador
 
         winner = sim_game.get_winner()
-        if winner == self.player:
+        if winner == self.jogador:
             return 1
-        elif winner == -self.player:
+        elif winner == -self.jogador:
             return -1
         else:
             return 0
 
-    def _rollout_policy(self, game: OthelloGame,
+    def _rollout_policy(self, game: Othello,
                         moves: List[Tuple[int, int]],
-                        player: int) -> Tuple[int, int]:
+                        jogador: int) -> Tuple[int, int]:
         """
         Política de rollout:
             'random'    → escolha uniforme aleatória
@@ -257,10 +257,10 @@ class MCTSAgent:
             return random.choice(moves)
 
         # --- Heurística simples: prioriza cantos e bordas ---
-        size = game.size
-        corners = {(0, 0), (0, size-1), (size-1, 0), (size-1, size-1)}
-        edges   = {(r, c) for r in range(size) for c in range(size)
-                   if r == 0 or r == size-1 or c == 0 or c == size-1}
+        tamanho = game.tamanho
+        corners = {(0, 0), (0, tamanho-1), (tamanho-1, 0), (tamanho-1, tamanho-1)}
+        edges   = {(r, c) for r in range(tamanho) for c in range(tamanho)
+                   if r == 0 or r == tamanho-1 or c == 0 or c == tamanho-1}
 
         corner_moves = [m for m in moves if m in corners]
         if corner_moves:
@@ -280,19 +280,19 @@ class MCTSAgent:
         """
         Propaga o resultado da simulação de volta à raiz.
 
-        result = +1 (vitória de self.player), -1 (derrota), 0 (empate).
+        result = +1 (vitória de self.jogador), -1 (derrota), 0 (empate).
         Cada nó acumula vitórias do ponto de vista do jogador que
-        FEZ A JOGADA para chegar nele (= -node.player).
+        FEZ A JOGADA para chegar nele (= -node.jogador).
         """
         while node is not None:
             node.visits += 1
             # O jogador que jogou para chegar aqui é o PAI do nó
-            # Portanto, avaliamos do ponto de vista de -node.player
+            # Portanto, avaliamos do ponto de vista de -node.jogador
             if result == 0:
                 node.wins += 0.5    # Empate vale meio ponto
-            elif result == 1 and self.player != node.player:
+            elif result == 1 and self.jogador != node.jogador:
                 node.wins += 1.0    # Vitória do agente
-            elif result == -1 and self.player == node.player:
+            elif result == -1 and self.jogador == node.jogador:
                 node.wins += 1.0    # Também conta perda do oponente
             node = node.parent
 

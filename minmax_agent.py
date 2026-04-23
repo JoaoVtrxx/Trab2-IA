@@ -33,7 +33,7 @@ import math
 import time
 from typing import Tuple, Optional, List
 
-from othello_game import OthelloGame
+from othello_game import Othello
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ class MinMaxAgent:
 
     Parâmetros
     ----------
-    player : int
+    jogador : int
         Identidade do agente (1 ou -1).
     depth : int
         Profundidade máxima de busca (3 a 5 recomendado).
@@ -58,9 +58,9 @@ class MinMaxAgent:
         Se True, imprime a árvore de decisão dos primeiros 2 níveis.
     """
 
-    def __init__(self, player: int, depth: int = 4, verbose: bool = False):
+    def __init__(self, jogador: int, depth: int = 4, verbose: bool = False):
         assert 3 <= depth <= 5, "Profundidade deve estar entre 3 e 5"
-        self.player  = player
+        self.jogador  = jogador
         self.depth   = depth
         self.verbose = verbose
 
@@ -73,7 +73,7 @@ class MinMaxAgent:
     # Interface pública
     # ------------------------------------------------------------------
 
-    def choose_move(self, game: OthelloGame) -> Optional[Tuple[int, int]]:
+    def choose_move(self, game: Othello) -> Optional[Tuple[int, int]]:
         """
         Escolhe a melhor jogada para o estado atual do jogo.
         Retorna None se não houver jogadas disponíveis (passa a vez).
@@ -82,8 +82,8 @@ class MinMaxAgent:
         self.nodes_evaluated = 0
         self.prune_count     = 0
 
-        valid_moves = game.get_valid_moves(self.player)
-        if not valid_moves:
+        valido_moves = game.movimentos_validoos(self.jogador)
+        if not valido_moves:
             return None
 
         best_move  = None
@@ -93,14 +93,14 @@ class MinMaxAgent:
 
         if self.verbose:
             print(f"\n{'='*60}")
-            print(f"  MinMax (profundidade={self.depth}) — Jogador {self.player}")
-            print(f"  Jogadas válidas: {valid_moves}")
+            print(f"  MinMax (profundidade={self.depth}) — Jogador {self.jogador}")
+            print(f"  Jogadas válidas: {valido_moves}")
             print(f"{'='*60}")
 
-        for move in valid_moves:
+        for move in valido_moves:
             child = game.clone()
-            child.make_move(move[0], move[1], self.player)
-            child.switch_player()
+            child.executa_jogada(move[0], move[1], self.jogador)
+            child.switch_jogador()
 
             value = self._minimax(child, self.depth - 1,
                                   alpha, beta,
@@ -130,7 +130,7 @@ class MinMaxAgent:
     # Algoritmo Min-Max com Poda Alfa-Beta
     # ------------------------------------------------------------------
 
-    def _minimax(self, game: OthelloGame, depth: int,
+    def _minimax(self, game: Othello, depth: int,
                  alpha: float, beta: float,
                  maximizing: bool, level: int = 0,
                  move_label: str = "") -> float:
@@ -147,19 +147,19 @@ class MinMaxAgent:
         level      : nível atual (para verbose)
         move_label : rótulo para exibição na árvore verbose
         """
-        current_player = self.player if maximizing else -self.player
+        jogador_atual = self.jogador if maximizing else -self.jogador
 
         # ----- Caso base: profundidade zero ou estado terminal -----
         if depth == 0 or game.is_terminal():
             self.nodes_evaluated += 1
             return self._evaluate(game)
 
-        valid_moves = game.get_valid_moves(current_player)
+        valido_moves = game.movimentos_validoos(jogador_atual)
 
         # ----- Sem jogadas → passa a vez (não troca de nível) ------
-        if not valid_moves:
+        if not valido_moves:
             child = game.clone()
-            child.switch_player()
+            child.switch_jogador()
             return self._minimax(child, depth - 1,
                                  alpha, beta, not maximizing,
                                  level + 1, "PASS")
@@ -169,10 +169,10 @@ class MinMaxAgent:
         # ----- Nó MAX -----------------------------------------------
         if maximizing:
             max_val = -math.inf
-            for move in valid_moves:
+            for move in valido_moves:
                 child = game.clone()
-                child.make_move(move[0], move[1], current_player)
-                child.switch_player()
+                child.executa_jogada(move[0], move[1], jogador_atual)
+                child.switch_jogador()
 
                 val = self._minimax(child, depth - 1,
                                     alpha, beta, False,
@@ -196,10 +196,10 @@ class MinMaxAgent:
         # ----- Nó MIN -----------------------------------------------
         else:
             min_val = math.inf
-            for move in valid_moves:
+            for move in valido_moves:
                 child = game.clone()
-                child.make_move(move[0], move[1], current_player)
-                child.switch_player()
+                child.executa_jogada(move[0], move[1], jogador_atual)
+                child.switch_jogador()
 
                 val = self._minimax(child, depth - 1,
                                     alpha, beta, True,
@@ -224,19 +224,19 @@ class MinMaxAgent:
     # Função de avaliação heurística: Avaliar(s) = Σ wi·fi(s)
     # ------------------------------------------------------------------
 
-    def _evaluate(self, game: OthelloGame) -> float:
+    def _evaluate(self, game: Othello) -> float:
         """
         Avaliar(s) = w1·f1(s) + w2·f2(s) + w3·f3(s)
 
-        Retorna valor positivo quando o estado é bom para self.player.
+        Retorna valor positivo quando o estado é bom para self.jogador.
         """
-        board = game.board
-        size  = game.size
-        opp   = -self.player
+        tabuleiro = game.tabuleiro
+        tamanho  = game.tamanho
+        opp   = -self.jogador
 
         # --- f1: Diferença de peças normalizada ---
-        my_pieces  = int((board == self.player).sum())
-        opp_pieces = int((board == opp).sum())
+        my_pieces  = int((tabuleiro == self.jogador).sum())
+        opp_pieces = int((tabuleiro == opp).sum())
         total = my_pieces + opp_pieces
         if total == 0:
             f1 = 0.0
@@ -244,45 +244,45 @@ class MinMaxAgent:
             f1 = (my_pieces - opp_pieces) / total   # ∈ [-1, 1]
 
         # --- f2: Mobilidade relativa ---
-        my_mob  = len(game.get_valid_moves(self.player))
-        opp_mob = len(game.get_valid_moves(opp))
+        my_mob  = len(game.movimentos_validoos(self.jogador))
+        opp_mob = len(game.movimentos_validoos(opp))
         mob_sum = my_mob + opp_mob + 1e-9            # ε evita divisão por zero
         f2 = (my_mob - opp_mob) / mob_sum            # ∈ [-1, 1]
 
         # --- f3: Controle de cantos e bordas ---
-        corners = [(0, 0), (0, size - 1),
-                   (size - 1, 0), (size - 1, size - 1)]
+        corners = [(0, 0), (0, tamanho - 1),
+                   (tamanho - 1, 0), (tamanho - 1, tamanho - 1)]
 
         corner_score = 0.0
         for r, c in corners:
-            if board[r][c] == self.player:
+            if tabuleiro[r][c] == self.jogador:
                 corner_score += 1.0
-            elif board[r][c] == opp:
+            elif tabuleiro[r][c] == opp:
                 corner_score -= 1.0
 
         # Bordas (excluindo cantos já contados)
         edge_score = 0.0
-        for c in range(1, size - 1):                 # Borda superior
-            if board[0][c] == self.player:   edge_score += 0.3
-            elif board[0][c] == opp:         edge_score -= 0.3
-        for c in range(1, size - 1):                 # Borda inferior
-            if board[size-1][c] == self.player:  edge_score += 0.3
-            elif board[size-1][c] == opp:        edge_score -= 0.3
-        for r in range(1, size - 1):                 # Borda esquerda
-            if board[r][0] == self.player:   edge_score += 0.3
-            elif board[r][0] == opp:         edge_score -= 0.3
-        for r in range(1, size - 1):                 # Borda direita
-            if board[r][size-1] == self.player:  edge_score += 0.3
-            elif board[r][size-1] == opp:        edge_score -= 0.3
+        for c in range(1, tamanho - 1):                 # Borda superior
+            if tabuleiro[0][c] == self.jogador:   edge_score += 0.3
+            elif tabuleiro[0][c] == opp:         edge_score -= 0.3
+        for c in range(1, tamanho - 1):                 # Borda inferior
+            if tabuleiro[tamanho-1][c] == self.jogador:  edge_score += 0.3
+            elif tabuleiro[tamanho-1][c] == opp:        edge_score -= 0.3
+        for r in range(1, tamanho - 1):                 # Borda esquerda
+            if tabuleiro[r][0] == self.jogador:   edge_score += 0.3
+            elif tabuleiro[r][0] == opp:         edge_score -= 0.3
+        for r in range(1, tamanho - 1):                 # Borda direita
+            if tabuleiro[r][tamanho-1] == self.jogador:  edge_score += 0.3
+            elif tabuleiro[r][tamanho-1] == opp:        edge_score -= 0.3
 
         # Normaliza f3 aproximadamente para [-1, 1]
-        max_f3 = 4.0 + 4 * (size - 2) * 0.3
+        max_f3 = 4.0 + 4 * (tamanho - 2) * 0.3
         f3 = (corner_score + edge_score) / max_f3
 
         # --- Avaliação terminal: punição/prêmio máximo ---
         if game.is_terminal():
             winner = game.get_winner()
-            if winner == self.player:
+            if winner == self.jogador:
                 return 1e6
             elif winner == opp:
                 return -1e6

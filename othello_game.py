@@ -1,146 +1,122 @@
-"""
-othello_game.py
-===============
-Motor do jogo Othello (Reversi) para tabuleiro NxN.
+# Motor do jogo Othello (Reversi) para tabuleiro NxN.
 
-Representação do tabuleiro:
-    0  = célula vazia
-    1  = peça do jogador 1 (preto)
-   -1  = peça do jogador 2 (branco)
-"""
+# Representação do tabuleiro:
+#    0  = célula vazia
+#    1  = peça do jogador 1 (preto)
+#   -1  = peça do jogador 2 (branco)
 
-import copy
 import numpy as np
 from typing import List, Tuple, Optional
 
-
-# ---------------------------------------------------------------------------
 # Direções para verificar capturas (8 direções)
-# ---------------------------------------------------------------------------
-DIRECTIONS = [(-1, -1), (-1, 0), (-1, 1),
+DIRECOES = [(-1, -1), (-1, 0), (-1, 1),
               (0,  -1),           (0,  1),
               (1,  -1),  (1,  0), (1,  1)]
 
 
-class OthelloGame:
-    """
-    Encapsula o estado e a lógica completa do jogo Othello/Reversi.
+class Othello:
+#
+#    tamanho : int
+#        Tamanho do tabuleiro (tamanho x tamanho). Default = 6.
+#    bonus_canto : bool
+#        Se True, cantos valem 3× na contagem final.
+#        Extensões obrigatórias: (1) Tabuleiro dinâmico (2) Pontuação diferenciada.
 
-    Parâmetros
-    ----------
-    size : int
-        Tamanho do tabuleiro (size x size). Default = 6.
-    corner_bonus : bool
-        Se True, cantos valem 3× na contagem final.
-        Extensão obrigatória de pontuação diferenciada.
-    """
+    def __init__(self, tamanho: int = 6, bonus_canto: bool = False):
+        self.tamanho = tamanho
+        self.bonus_canto = bonus_canto
+        self.tabuleiro = np.zeros((tamanho, tamanho), dtype=int)
+        self._inicializa_tabuleiro()
+        self.jogador_atual = 1          # Jogador 1 (preto) começa
+        self.contagem_passes = 0              # Contagem de passes consecutivos
+        self.historico: List[np.ndarray] = []
 
-    def __init__(self, size: int = 6, corner_bonus: bool = False):
-        self.size = size
-        self.corner_bonus = corner_bonus
-        self.board = np.zeros((size, size), dtype=int)
-        self._init_board()
-        self.current_player = 1          # Jogador 1 (preto) começa
-        self.pass_count = 0              # Contagem de passes consecutivos
-        self.history: List[np.ndarray] = []
+    def _inicializa_tabuleiro(self):
+        # Inicialização do tabuleiro com peças iniciais (no centro)
+        c = self.tamanho // 2
+        self.tabuleiro[c - 1][c - 1] =  1
+        self.tabuleiro[c - 1][c]     = -1
+        self.tabuleiro[c][c - 1]     = -1
+        self.tabuleiro[c][c]         =  1
 
-    # ------------------------------------------------------------------
-    # Inicialização
-    # ------------------------------------------------------------------
+    def movimentos_validoos(self, jogador: int) -> List[Tuple[int, int]]:
+        # Geração de jogadas válidas
+        
+        # Retorna lista de (linha, col) onde 'jogador' pode jogar.
+        
+        # Uma posição é válida se estiver vazia E resultar na captura
+        # de ao menos uma peça adversária em qualquer das 8 direções.
 
-    def _init_board(self):
-        """Posiciona as quatro peças iniciais no centro do tabuleiro."""
-        c = self.size // 2
-        self.board[c - 1][c - 1] =  1
-        self.board[c - 1][c]     = -1
-        self.board[c][c - 1]     = -1
-        self.board[c][c]         =  1
+        validos = []
+        for l in range(self.tamanho):
+            for c in range(self.tamanho):
+                if self.tabuleiro[l][c] == 0 and self.eh_movimento_valido(l, c, jogador):
+                    validos.append((l, c))
+        return validos
 
-    # ------------------------------------------------------------------
-    # Geração de jogadas válidas
-    # ------------------------------------------------------------------
-
-    def get_valid_moves(self, player: int) -> List[Tuple[int, int]]:
-        """
-        Retorna lista de (row, col) onde 'player' pode jogar.
-
-        Uma posição é válida se estiver vazia E resultar na captura
-        de ao menos uma peça adversária em qualquer das 8 direções.
-        """
-        valid = []
-        for r in range(self.size):
-            for c in range(self.size):
-                if self.board[r][c] == 0 and self._is_valid_move(r, c, player):
-                    valid.append((r, c))
-        return valid
-
-    def _is_valid_move(self, row: int, col: int, player: int) -> bool:
-        """Verifica se (row, col) é um movimento válido para 'player'."""
-        for dr, dc in DIRECTIONS:
-            if self._captures_in_direction(row, col, player, dr, dc):
+    def eh_movimento_valido(self, linha: int, col: int, jogador: int) -> bool:
+        # Verifica se (linha, col) é um movimento válido para 'jogador'.
+        for dl, dc in DIRECOES:
+            if self.verifica_captura_na_direcao(linha, col, jogador, dl, dc):
                 return True
         return False
 
-    def _captures_in_direction(self, row: int, col: int,
-                                player: int, dr: int, dc: int) -> bool:
-        """
-        Verifica se, na direção (dr, dc), jogar em (row, col) captura
-        ao menos uma peça adversária.
-        """
-        opponent = -player
-        r, c = row + dr, col + dc
-        found_opponent = False
+    def verifica_captura_na_direcao(self, linha: int, col: int,
+                                jogador: int, dl: int, dc: int) -> bool:
+        # Verifica se, na direção (dl, dc), jogar em (linha, col) captura
+        # ao menos uma peça adversária.
 
-        while 0 <= r < self.size and 0 <= c < self.size:
-            if self.board[r][c] == opponent:
-                found_opponent = True
-            elif self.board[r][c] == player:
-                return found_opponent   # Há peças adversárias entre as nossas
+        oponente = -jogador
+        l, c = linha + dl, col + dc
+        achou_oponente = False
+
+        while 0 <= l < self.tamanho and 0 <= c < self.tamanho:
+            if self.tabuleiro[l][c] == oponente: # Precisa achar oponente entre esse lugar que tu quer jogar e outra peça nossa
+                achou_oponente = True
+            elif self.tabuleiro[l][c] == jogador:
+                return achou_oponente   # Há peças adversárias entre as nossas
             else:
-                return False            # Célula vazia — interrompe a cadeia
-            r += dr
+                return False            # Célula vazia, então interrompe a cadeia
+            l += dl
             c += dc
 
         return False
 
-    # ------------------------------------------------------------------
-    # Execução de jogada
-    # ------------------------------------------------------------------
+    def executa_jogada(self, linha: int, col: int, jogador: int) -> bool:
+        # Aplica o movimento (linha, col) para 'jogador', revertendo as peças
+        # capturadas. Retorna True se o movimento foi executado com sucesso.
+        
+        # PARAMOS AQUI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    def make_move(self, row: int, col: int, player: int) -> bool:
-        """
-        Aplica o movimento (row, col) para 'player', revertendo as peças
-        capturadas. Retorna True se o movimento foi executado com sucesso.
-        """
-        if self.board[row][col] != 0:
+        if self.tabuleiro[linha][col] != 0:
             return False
-        if not self._is_valid_move(row, col, player):
+        if not self.eh_movimento_valido(linha, col, jogador):
             return False
 
-        self.history.append(self.board.copy())
-        self.board[row][col] = player
-        self._flip_pieces(row, col, player)
-        self.pass_count = 0
+        self.historico.append(self.tabuleiro.copy())
+        self.tabuleiro[linha][col] = jogador
+        self._flip_pieces(linha, col, jogador)
+        self.contagem_passes = 0
         return True
 
-    def _flip_pieces(self, row: int, col: int, player: int):
-        """Reverte todas as peças capturadas pelo movimento em (row, col)."""
-        for dr, dc in DIRECTIONS:
-            to_flip = self._get_flips(row, col, player, dr, dc)
+    def _flip_pieces(self, linha: int, col: int, jogador: int):
+        """Reverte todas as peças capturadas pelo movimento em (linha, col)."""
+        for dr, dc in DIRECOES:
+            to_flip = self._get_flips(linha, col, jogador, dr, dc)
             for r, c in to_flip:
-                self.board[r][c] = player
+                self.tabuleiro[r][c] = jogador
 
-    def _get_flips(self, row: int, col: int,
-                   player: int, dr: int, dc: int) -> List[Tuple[int, int]]:
+    def _get_flips(self, linha: int, col: int,
+                   jogador: int, dr: int, dc: int) -> List[Tuple[int, int]]:
         """Retorna lista de posições a flipar na direção (dr, dc)."""
-        opponent = -player
-        r, c = row + dr, col + dc
+        oponente = -jogador
+        r, c = linha + dr, col + dc
         candidate = []
 
-        while 0 <= r < self.size and 0 <= c < self.size:
-            if self.board[r][c] == opponent:
+        while 0 <= r < self.tamanho and 0 <= c < self.tamanho:
+            if self.tabuleiro[r][c] == oponente:
                 candidate.append((r, c))
-            elif self.board[r][c] == player:
+            elif self.tabuleiro[r][c] == jogador:
                 return candidate        # Confirma captura
             else:
                 return []               # Cadeia interrompida por vazio
@@ -159,9 +135,9 @@ class OthelloGame:
         - Nenhum dos dois jogadores tem jogadas disponíveis, OU
         - O tabuleiro está cheio.
         """
-        if np.count_nonzero(self.board == 0) == 0:
+        if np.count_nonzero(self.tabuleiro == 0) == 0:
             return True
-        if not self.get_valid_moves(1) and not self.get_valid_moves(-1):
+        if not self.movimentos_validoos(1) and not self.movimentos_validoos(-1):
             return True
         return False
 
@@ -170,7 +146,7 @@ class OthelloGame:
         Conta as peças e retorna o vencedor (1 ou -1).
         Empate retorna 0. Só deve ser chamado quando is_terminal().
 
-        Extensão: se corner_bonus=True, cantos valem 3× na soma.
+        Extensão: se bonus_canto=True, cantos valem 3× na soma.
         """
         score1, score_neg1 = self._count_scores()
 
@@ -183,14 +159,14 @@ class OthelloGame:
 
     def _count_scores(self) -> Tuple[int, int]:
         """Calcula pontuação de cada jogador."""
-        score1 = int(np.sum(self.board == 1))
-        score_neg1 = int(np.sum(self.board == -1))
+        score1 = int(np.sum(self.tabuleiro == 1))
+        score_neg1 = int(np.sum(self.tabuleiro == -1))
 
-        if self.corner_bonus:
-            corners = [(0, 0), (0, self.size - 1),
-                       (self.size - 1, 0), (self.size - 1, self.size - 1)]
+        if self.bonus_canto:
+            corners = [(0, 0), (0, self.tamanho - 1),
+                       (self.tamanho - 1, 0), (self.tamanho - 1, self.tamanho - 1)]
             for r, c in corners:
-                v = self.board[r][c]
+                v = self.tabuleiro[r][c]
                 if v == 1:
                     score1 += 2        # +2 extra = total 3× por canto
                 elif v == -1:
@@ -207,25 +183,25 @@ class OthelloGame:
     # Utilitários
     # ------------------------------------------------------------------
 
-    def clone(self) -> "OthelloGame":
+    def clone(self) -> "Othello":
         """Cria uma cópia profunda do estado atual (usada pelos agentes)."""
-        new_game = OthelloGame(self.size, self.corner_bonus)
-        new_game.board = self.board.copy()
-        new_game.current_player = self.current_player
-        new_game.pass_count = self.pass_count
+        new_game = Othello(self.tamanho, self.bonus_canto)
+        new_game.tabuleiro = self.tabuleiro.copy()
+        new_game.jogador_atual = self.jogador_atual
+        new_game.contagem_passes = self.contagem_passes
         return new_game
 
-    def switch_player(self):
+    def switch_jogador(self):
         """Troca o jogador corrente."""
-        self.current_player *= -1
+        self.jogador_atual *= -1
 
     def __str__(self) -> str:
         symbols = {0: ".", 1: "●", -1: "○"}
-        rows = []
-        header = "  " + " ".join(str(i) for i in range(self.size))
-        rows.append(header)
-        for r in range(self.size):
-            row_str = str(r) + " " + " ".join(symbols[self.board[r][c]]
-                                               for c in range(self.size))
-            rows.append(row_str)
-        return "\n".join(rows)
+        linhas = []
+        header = "  " + " ".join(str(i) for i in range(self.tamanho))
+        linhas.append(header)
+        for r in range(self.tamanho):
+            linha_str = str(r) + " " + " ".join(symbols[self.tabuleiro[r][c]]
+                                               for c in range(self.tamanho))
+            linhas.append(linha_str)
+        return "\n".join(linhas)

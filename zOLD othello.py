@@ -9,7 +9,7 @@ P = 1  # Preto
 B = 2  # Branco
 VAZIO = 0
 
-class OthelloGame:
+class Othello:
     def __init__(self, n=6, regras_avancadas=False):
         """
         Inicializa o jogo Othello.
@@ -46,7 +46,7 @@ class OthelloGame:
             print(linha_str)
         print()
 
-    def jogada_valida(self, tab, linha, col, jogador):
+    def jogada_validoa(self, tab, linha, col, jogador):
         if tab[linha][col] != VAZIO:
             return False
         
@@ -73,8 +73,8 @@ class OthelloGame:
                 c += dc
         return False
 
-    def jogadas_validas(self, tab, jogador):
-        return [(i, j) for i in range(self.n) for j in range(self.n) if self.jogada_valida(tab, i, j, jogador)]
+    def jogadas_validoas(self, tab, jogador):
+        return [(i, j) for i in range(self.n) for j in range(self.n) if self.jogada_validoa(tab, i, j, jogador)]
 
     def aplicar_jogada(self, tab, linha, col, jogador):
         novo_tab = copy.deepcopy(tab)
@@ -102,7 +102,7 @@ class OthelloGame:
         return novo_tab
 
     def verificar_fim(self, tab):
-        return not self.jogadas_validas(tab, P) and not self.jogadas_validas(tab, B)
+        return not self.jogadas_validoas(tab, P) and not self.jogadas_validoas(tab, B)
 
     def obter_pontuacao(self, tab):
         if not self.regras_avancadas:
@@ -132,7 +132,7 @@ class OthelloGame:
         self.tabuleiro = self.aplicar_jogada(self.tabuleiro, jogada[0], jogada[1], self.jogador_atual)
         oponente = B if self.jogador_atual == P else P
         # Troca de turno se o oponente tiver jogadas, senão mantém
-        if self.jogadas_validas(self.tabuleiro, oponente):
+        if self.jogadas_validoas(self.tabuleiro, oponente):
             self.jogador_atual = oponente
 
 
@@ -161,8 +161,8 @@ class MinMaxAgent:
         dif_pecas = minhas_pecas - oponente_pecas
 
         # Mobilidade
-        minha_mob = len(game.jogadas_validas(tab, self.jogador))
-        oponente_mob = len(game.jogadas_validas(tab, self.oponente))
+        minha_mob = len(game.jogadas_validoas(tab, self.jogador))
+        oponente_mob = len(game.jogadas_validoas(tab, self.oponente))
         dif_mob = minha_mob - oponente_mob
 
         # Cantos
@@ -178,7 +178,7 @@ class MinMaxAgent:
             return self.avaliar(tab, game), None
 
         jogador_turno = self.jogador if maximizando else self.oponente
-        jogadas = game.jogadas_validas(tab, jogador_turno)
+        jogadas = game.jogadas_validoas(tab, jogador_turno)
 
         if not jogadas:
             return self.minmax(tab, profundidade - 1, alpha, beta, not maximizando, game)[0], None
@@ -240,7 +240,7 @@ class MCTSAgent:
 
     def obter_untried_moves(self, node, game):
         if node.untried_moves is None:
-            node.untried_moves = game.jogadas_validas(node.state, node.jogador_turno)
+            node.untried_moves = game.jogadas_validoas(node.state, node.jogador_turno)
         return node.untried_moves
 
     def escolher_jogada(self, game):
@@ -265,7 +265,7 @@ class MCTSAgent:
                 jogada = random.choice(untried_moves)
                 novo_estado = game.aplicar_jogada(node.state, jogada[0], jogada[1], node.jogador_turno)
                 prox_jogador = self.oponente if node.jogador_turno == self.jogador else self.jogador
-                if not game.jogadas_validas(novo_estado, prox_jogador):
+                if not game.jogadas_validoas(novo_estado, prox_jogador):
                     prox_jogador = node.jogador_turno  # Passa a vez
                 
                 child = Node(novo_estado, prox_jogador, parent=node, jogada=jogada)
@@ -277,13 +277,13 @@ class MCTSAgent:
             estado_atual = node.state
             jogador_atual_sim = node.jogador_turno
             while not game.verificar_fim(estado_atual):
-                moves = game.jogadas_validas(estado_atual, jogador_atual_sim)
+                moves = game.jogadas_validoas(estado_atual, jogador_atual_sim)
                 if moves:
                     move = random.choice(moves)
                     estado_atual = game.aplicar_jogada(estado_atual, move[0], move[1], jogador_atual_sim)
                 
                 prox = B if jogador_atual_sim == P else P
-                if game.jogadas_validas(estado_atual, prox):
+                if game.jogadas_validoas(estado_atual, prox):
                     jogador_atual_sim = prox
 
             # 4. Backpropagation
@@ -320,7 +320,7 @@ def torneio(partidas=10, regras_avancadas=False, n=6):
     print(f"Iniciando torneio com {partidas} partidas no tabuleiro {n}x{n}. Regras Avançadas: {regras_avancadas}")
     
     for i in range(partidas):
-        game = OthelloGame(n=n, regras_avancadas=regras_avancadas)
+        game = Othello(n=n, regras_avancadas=regras_avancadas)
         # O agente que joga com Preto (1) ou Branco (2) será alternado
         p_agent_is_minmax = (i % 2 == 0)
         
