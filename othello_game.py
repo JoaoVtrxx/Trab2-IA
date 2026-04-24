@@ -39,7 +39,7 @@ class Othello:
         self.tabuleiro[c][c - 1]     = -1
         self.tabuleiro[c][c]         =  1
 
-    def movimentos_validoos(self, jogador: int) -> List[Tuple[int, int]]:
+    def movimentos_validos(self, jogador: int) -> List[Tuple[int, int]]:
         # Geração de jogadas válidas
         
         # Retorna lista de (linha, col) onde 'jogador' pode jogar.
@@ -85,8 +85,6 @@ class Othello:
     def executa_jogada(self, linha: int, col: int, jogador: int) -> bool:
         # Aplica o movimento (linha, col) para 'jogador', revertendo as peças
         # capturadas. Retorna True se o movimento foi executado com sucesso.
-        
-        # PARAMOS AQUI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         if self.tabuleiro[linha][col] != 0:
             return False
@@ -95,113 +93,107 @@ class Othello:
 
         self.historico.append(self.tabuleiro.copy())
         self.tabuleiro[linha][col] = jogador
-        self._flip_pieces(linha, col, jogador)
+        self.inverte_pecas(linha, col, jogador)
         self.contagem_passes = 0
         return True
 
-    def _flip_pieces(self, linha: int, col: int, jogador: int):
-        """Reverte todas as peças capturadas pelo movimento em (linha, col)."""
-        for dr, dc in DIRECOES:
-            to_flip = self._get_flips(linha, col, jogador, dr, dc)
-            for r, c in to_flip:
-                self.tabuleiro[r][c] = jogador
+    def inverte_pecas(self, linha: int, col: int, jogador: int):
+        # Inverte todas as peças capturadas pelo movimento em (linha, col).
 
-    def _get_flips(self, linha: int, col: int,
-                   jogador: int, dr: int, dc: int) -> List[Tuple[int, int]]:
-        """Retorna lista de posições a flipar na direção (dr, dc)."""
+        for dl, dc in DIRECOES: # Para cada uma das direções, verifica quais peças devem ser invertidas
+            lista_de_inversoes = self.get_inversoes(linha, col, jogador, dl, dc) # Lista com todas as (linha, col) que devem ser invertidadas dada uma direcao
+
+            for l, c in lista_de_inversoes: # Itera invertendo as pecas
+                self.tabuleiro[l][c] = jogador
+
+    def get_inversoes(self, linha: int, col: int,
+                   jogador: int, dl: int, dc: int) -> List[Tuple[int, int]]:
+        # Retorna lista de posições a flipar na direção (dl, dc).
+
         oponente = -jogador
-        r, c = linha + dr, col + dc
-        candidate = []
+        l, c = linha + dl, col + dc
+        candidatos = []
 
-        while 0 <= r < self.tamanho and 0 <= c < self.tamanho:
-            if self.tabuleiro[r][c] == oponente:
-                candidate.append((r, c))
-            elif self.tabuleiro[r][c] == jogador:
-                return candidate        # Confirma captura
+        while 0 <= l < self.tamanho and 0 <= c < self.tamanho:
+            if self.tabuleiro[l][c] == oponente:
+                candidatos.append((l, c))
+            elif self.tabuleiro[l][c] == jogador:
+                return candidatos        # Confirma captura
             else:
                 return []               # Cadeia interrompida por vazio
-            r += dr
+            l += dl
             c += dc
 
         return []
 
-    # ------------------------------------------------------------------
-    # Condição de término e vencedor
-    # ------------------------------------------------------------------
+    def verifica_fim(self) -> bool:
+        # O jogo termina quando:
+        # - Nenhum dos dois jogadores tem jogadas disponíveis, OU
+        # - O tabuleiro está cheio.
 
-    def is_terminal(self) -> bool:
-        """
-        O jogo termina quando:
-        - Nenhum dos dois jogadores tem jogadas disponíveis, OU
-        - O tabuleiro está cheio.
-        """
-        if np.count_nonzero(self.tabuleiro == 0) == 0:
+        if np.count_nonzero(self.tabuleiro == 0) == 0: # Tabuleiro cheio
             return True
-        if not self.movimentos_validoos(1) and not self.movimentos_validoos(-1):
+        if not self.movimentos_validos(1) and not self.movimentos_validos(-1): # Sem jogadas para ambos os jogadores
             return True
         return False
 
-    def get_winner(self) -> Optional[int]:
-        """
-        Conta as peças e retorna o vencedor (1 ou -1).
-        Empate retorna 0. Só deve ser chamado quando is_terminal().
+    def get_vencedor(self) -> Optional[int]:
+        # Conta as peças e retorna o vencedor (P = 1 ou B = -1).
+        # Empate retorna 0. Só deve ser chamado quando verifica_fim().
 
-        Extensão: se bonus_canto=True, cantos valem 3× na soma.
-        """
-        score1, score_neg1 = self._count_scores()
+        # Extensão: se bonus_canto=True, cantos valem 3x na soma.
 
-        if score1 > score_neg1:
+        score_preto, score_branco = self.contagem_scores()
+
+        if score_preto > score_branco:
             return 1
-        elif score_neg1 > score1:
+        elif score_branco > score_preto:
             return -1
         else:
             return 0
 
-    def _count_scores(self) -> Tuple[int, int]:
-        """Calcula pontuação de cada jogador."""
-        score1 = int(np.sum(self.tabuleiro == 1))
-        score_neg1 = int(np.sum(self.tabuleiro == -1))
+    def contagem_scores(self) -> Tuple[int, int]:
+        # Calcula pontuação de cada jogador.
+        score_preto = int(np.sum(self.tabuleiro == 1))
+        score_branco = int(np.sum(self.tabuleiro == -1))
 
         if self.bonus_canto:
-            corners = [(0, 0), (0, self.tamanho - 1),
+            cantos = [(0, 0), (0, self.tamanho - 1),
                        (self.tamanho - 1, 0), (self.tamanho - 1, self.tamanho - 1)]
-            for r, c in corners:
-                v = self.tabuleiro[r][c]
+            for l, c in cantos:
+                v = self.tabuleiro[l][c]
                 if v == 1:
-                    score1 += 2        # +2 extra = total 3× por canto
+                    score_preto += 2        # +2 extra = total 3× por canto
                 elif v == -1:
-                    score_neg1 += 2
+                    score_branco += 2
 
-        return score1, score_neg1
+        return score_preto, score_branco
 
-    def get_score_dict(self) -> dict:
-        """Retorna dicionário com pontuação de cada jogador."""
-        s1, sn1 = self._count_scores()
-        return {1: s1, -1: sn1}
+    def get_dicionario_score(self) -> dict:
+        # Retorna dicionário com pontuação de cada jogador.
+        score_preto, score_branco = self.contagem_scores()
+        return {1: score_preto, -1: score_branco}
 
-    # ------------------------------------------------------------------
-    # Utilitários
-    # ------------------------------------------------------------------
+    def clonar(self) -> "Othello":
+        # Cria uma cópia profunda do estado atual (usada pelos agentes).
+        novo_jogo = Othello(self.tamanho, self.bonus_canto)
+        novo_jogo.tabuleiro = self.tabuleiro.copy()
+        novo_jogo.jogador_atual = self.jogador_atual
+        novo_jogo.contagem_passes = self.contagem_passes
+        return novo_jogo
 
-    def clone(self) -> "Othello":
-        """Cria uma cópia profunda do estado atual (usada pelos agentes)."""
-        new_game = Othello(self.tamanho, self.bonus_canto)
-        new_game.tabuleiro = self.tabuleiro.copy()
-        new_game.jogador_atual = self.jogador_atual
-        new_game.contagem_passes = self.contagem_passes
-        return new_game
+    def troca_jogador(self):
+        # Troca o jogador corrente.
+        self.jogador_atual *= -1 # Troca entre 1 e -1
 
-    def switch_jogador(self):
-        """Troca o jogador corrente."""
-        self.jogador_atual *= -1
-
-    def __str__(self) -> str:
-        symbols = {0: ".", 1: "●", -1: "○"}
+    def __str__(self) -> str: 
+        # '__str__' faz com que sempre que o objeto seja convertido para string (ex: print(jogo)) ele retorne a representação do tabuleiro
+        simbolos = {0: ".", 1: "●", -1: "○"}
         linhas = []
         header = "  " + " ".join(str(i) for i in range(self.tamanho))
         linhas.append(header)
-        for r in range(self.tamanho):
-            linha_str = str(r) + " " + " ".join(symbols[self.tabuleiro[r][c]]
+        for l in range(self.tamanho):
+            linha_str = str(l) + " " + " ".join(simbolos[self.tabuleiro[l][c]]
                                                for c in range(self.tamanho))
             linhas.append(linha_str)
         return "\n".join(linhas)

@@ -12,13 +12,13 @@ Othello é um jogo de tabuleiro para dois jogadores em um grid 8×8. O objetivo 
 
 ## Funcionalidades implementadas
 
-- `criar_tabuleiro()` — cria o tabuleiro 8×8 com as 4 peças iniciais
-- `imprimir_tabuleiro(tab)` — exibe o tabuleiro no terminal
-- `jogada_validoa(tab, linha, col, jogador)` — verifica se uma jogada é válida
-- `jogadas_validoas(tab, jogador)` — retorna todas as jogadas válidas para um jogador
-- `aplicar_jogada(tab, linha, col, jogador)` — aplica uma jogada e vira as peças capturadas
-- `verificar_fim(tab)` — verifica se o jogo acabou
-- `contar_pecas(tab)` — conta as peças de cada jogador no tabuleiro
+- `criar_tabuleiro()` - cria o tabuleiro 8×8 com as 4 peças iniciais
+- `imprimir_tabuleiro(tab)` - exibe o tabuleiro no terminal
+- `jogada_validoa(tab, linha, col, jogador)` - verifica se uma jogada é válida
+- `jogadas_validoas(tab, jogador)` - retorna todas as jogadas válidas para um jogador
+- `aplicar_jogada(tab, linha, col, jogador)` - aplica uma jogada e vira as peças capturadas
+- `verificar_fim(tab)` - verifica se o jogo acabou
+- `contar_pecas(tab)` - conta as peças de cada jogador no tabuleiro
 
 ## Como executar
 

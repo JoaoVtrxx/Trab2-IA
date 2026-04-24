@@ -4,10 +4,10 @@ mcts_agent.py
 Agente Monte Carlo Tree Search (MCTS) para o jogo Othello.
 
 Os quatro pilares:
-    1. SELEÇÃO   — desce na árvore usando UCT até um nó não totalmente expandido
-    2. EXPANSÃO  — adiciona um filho aleatório não visitado
-    3. SIMULAÇÃO — jogo aleatório (rollout) até o fim
-    4. RETROPROP — propaga vitória/derrota de volta à raiz
+    1. SELEÇÃO   - desce na árvore usando UCT até um nó não totalmente expandido
+    2. EXPANSÃO  - adiciona um filho aleatório não visitado
+    3. SIMULAÇÃO - jogo aleatório (rollout) até o fim
+    4. RETROPROP - propaga vitória/derrota de volta à raiz
 
 Fórmula UCT (Upper Confidence Bound for Trees):
     UCT(v) = Q(v)/N(v)  +  C · √( ln(N(pai)) / N(v) )
@@ -47,7 +47,7 @@ class MCTSNode:
     game    : estado do jogo associado a este nó
     jogador  : jogador que VAI jogar a partir deste nó
     parent  : nó pai (None para a raiz)
-    move    : jogada que levou do pai a este nó
+    movimento    : jogada que levou do pai a este nó
     children: filhos expandidos
     untried : jogadas ainda não expandidas
     wins    : total de vitórias (do ponto de vista de quem CRIOU o nó)
@@ -56,13 +56,13 @@ class MCTSNode:
 
     def __init__(self, game: Othello, jogador: int,
                  parent: Optional["MCTSNode"] = None,
-                 move: Optional[Tuple[int, int]] = None):
+                 movimento: Optional[Tuple[int, int]] = None):
         self.game    = game
         self.jogador  = jogador         # Jogador cujo turno é neste nó
         self.parent  = parent
-        self.move    = move
+        self.movimento    = movimento
         self.children: List["MCTSNode"] = []
-        self.untried: List[Tuple[int, int]] = game.movimentos_validoos(jogador)
+        self.untried: List[Tuple[int, int]] = game.movimentos_validos(jogador)
         random.shuffle(self.untried)  # Aleatoriedade na expansão
         self.wins   = 0.0
         self.visits = 0
@@ -71,7 +71,7 @@ class MCTSNode:
     # UCT: Upper Confidence Bound for Trees
     # ------------------------------------------------------------------
 
-    def uct_value(self) -> float:
+    def uct_valor(self) -> float:
         """
         UCT(v) = Q(v)/N(v) + C·√(ln(N_pai)/N(v))
 
@@ -91,7 +91,7 @@ class MCTSNode:
 
     def best_child(self) -> "MCTSNode":
         """Retorna o filho com maior valor UCT."""
-        return max(self.children, key=lambda n: n.uct_value())
+        return max(self.children, key=lambda n: n.uct_valor())
 
     def most_visited_child(self) -> "MCTSNode":
         """Retorna o filho mais visitado (política final de escolha)."""
@@ -123,26 +123,26 @@ class MCTSAgent:
 
         # Estatísticas
         self.sims_done       = 0
-        self.last_move_time  = 0.0
+        self.tempo_do_ultimo_movimento  = 0.0
 
     # ------------------------------------------------------------------
     # Interface pública
     # ------------------------------------------------------------------
 
-    def choose_move(self, game: Othello) -> Optional[Tuple[int, int]]:
+    def escolhe_movimento(self, game: Othello) -> Optional[Tuple[int, int]]:
         """
         Executa as simulações MCTS e retorna a melhor jogada encontrada.
         Retorna None se não houver jogadas (passa a vez).
         """
-        valido_moves = game.movimentos_validoos(self.jogador)
-        if not valido_moves:
+        movimentos_validos = game.movimentos_validos(self.jogador)
+        if not movimentos_validos:
             return None
 
         start = time.time()
         self.sims_done = 0
 
         # Cria raiz da árvore com o estado atual
-        root = MCTSNode(game.clone(), self.jogador)
+        root = MCTSNode(game.clonar(), self.jogador)
 
         # --- Loop principal de simulação ---
         while (self.sims_done < self.max_sims and
@@ -152,7 +152,7 @@ class MCTSAgent:
             node = self._select(root)
 
             # 2. EXPANSÃO
-            if not node.game.is_terminal() and not node.is_fully_expanded():
+            if not node.game.verifica_fim() and not node.is_fully_expanded():
                 node = self._expand(node)
 
             # 3. SIMULAÇÃO (Rollout)
@@ -163,11 +163,11 @@ class MCTSAgent:
 
             self.sims_done += 1
 
-        self.last_move_time = time.time() - start
+        self.tempo_do_ultimo_movimento = time.time() - start
 
         # Escolhe o filho mais visitado (mais robusto que maior UCT)
         best = root.most_visited_child()
-        return best.move
+        return best.movimento
 
     # ------------------------------------------------------------------
     # Pilar 1: SELEÇÃO (desce pela árvore via UCT)
@@ -179,7 +179,7 @@ class MCTSAgent:
         - Um nó terminal, OU
         - Um nó não totalmente expandido.
         """
-        while not node.game.is_terminal():
+        while not node.game.verifica_fim():
             if not node.is_fully_expanded():
                 return node          # Encontrou nó para expandir
             node = node.best_child() # Desce pelo filho com maior UCT
@@ -194,17 +194,17 @@ class MCTSAgent:
         Expande um nó não totalmente expandido:
         pega uma jogada não tentada e cria o filho correspondente.
         """
-        move = node.untried.pop()     # Remove uma jogada não tentada
-        child_game = node.game.clone()
-        child_game.executa_jogada(move[0], move[1], node.jogador)
+        movimento = node.untried.pop()     # Removimento uma jogada não tentada
+        child_game = node.game.clonar()
+        child_game.executa_jogada(movimento[0], movimento[1], node.jogador)
         next_jogador = -node.jogador
 
         # Se o próximo jogador não tem movimentos, o turno volta
-        if not child_game.movimentos_validoos(next_jogador):
+        if not child_game.movimentos_validos(next_jogador):
             next_jogador = node.jogador
 
         child_game.jogador_atual = next_jogador
-        child = MCTSNode(child_game, next_jogador, parent=node, move=move)
+        child = MCTSNode(child_game, next_jogador, parent=node, movimento=movimento)
         node.children.append(child)
         return child
 
@@ -220,24 +220,24 @@ class MCTSAgent:
             -1 se o adversário venceu
              0 se empate
         """
-        sim_game   = node.game.clone()
+        sim_game   = node.game.clonar()
         sim_jogador = node.jogador
 
-        while not sim_game.is_terminal():
-            moves = sim_game.movimentos_validoos(sim_jogador)
+        while not sim_game.verifica_fim():
+            movimentos = sim_game.movimentos_validos(sim_jogador)
 
-            if not moves:
+            if not movimentos:
                 # Passa a vez
                 sim_jogador = -sim_jogador
-                moves = sim_game.movimentos_validoos(sim_jogador)
-                if not moves:
+                movimentos = sim_game.movimentos_validos(sim_jogador)
+                if not movimentos:
                     break           # Ambos sem jogadas → fim
 
-            move = self._rollout_policy(sim_game, moves, sim_jogador)
-            sim_game.executa_jogada(move[0], move[1], sim_jogador)
+            movimento = self._rollout_policy(sim_game, movimentos, sim_jogador)
+            sim_game.executa_jogada(movimento[0], movimento[1], sim_jogador)
             sim_jogador = -sim_jogador
 
-        winner = sim_game.get_winner()
+        winner = sim_game.get_vencedor()
         if winner == self.jogador:
             return 1
         elif winner == -self.jogador:
@@ -246,7 +246,7 @@ class MCTSAgent:
             return 0
 
     def _rollout_policy(self, game: Othello,
-                        moves: List[Tuple[int, int]],
+                        movimentos: List[Tuple[int, int]],
                         jogador: int) -> Tuple[int, int]:
         """
         Política de rollout:
@@ -254,7 +254,7 @@ class MCTSAgent:
             'heuristic' → prefere cantos > bordas > outros
         """
         if self.rollout_type == "random":
-            return random.choice(moves)
+            return random.choice(movimentos)
 
         # --- Heurística simples: prioriza cantos e bordas ---
         tamanho = game.tamanho
@@ -262,15 +262,15 @@ class MCTSAgent:
         edges   = {(r, c) for r in range(tamanho) for c in range(tamanho)
                    if r == 0 or r == tamanho-1 or c == 0 or c == tamanho-1}
 
-        corner_moves = [m for m in moves if m in corners]
-        if corner_moves:
-            return random.choice(corner_moves)
+        corner_movimentos = [m for m in movimentos if m in corners]
+        if corner_movimentos:
+            return random.choice(corner_movimentos)
 
-        edge_moves = [m for m in moves if m in edges]
-        if edge_moves:
-            return random.choice(edge_moves)
+        edge_movimentos = [m for m in movimentos if m in edges]
+        if edge_movimentos:
+            return random.choice(edge_movimentos)
 
-        return random.choice(moves)
+        return random.choice(movimentos)
 
     # ------------------------------------------------------------------
     # Pilar 4: RETROPROPAGAÇÃO
@@ -303,5 +303,5 @@ class MCTSAgent:
     def stats(self) -> dict:
         return {
             "sims_done"     : self.sims_done,
-            "last_move_time": self.last_move_time,
+            "tempo_do_ultimo_movimento": self.tempo_do_ultimo_movimento,
         }

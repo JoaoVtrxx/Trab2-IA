@@ -1,194 +1,175 @@
-"""
-minmax_agent.py
-===============
-Agente Min-Max com Poda Alfa-Beta para o jogo Othello.
+# Agente Min-Max com Poda Alfa-Beta para o jogo Othello.
 
-Função de avaliação heurística:
-    Avaliar(s) = w1·f1(s) + w2·f2(s) + w3·f3(s)
+# Função de avaliação heurística:
+#     Avaliar(s) = w1·f1(s) + w2·f2(s) + w3·f3(s)
 
-Onde:
-    f1(s) = Diferença de peças normalizada
-            f1 = (minhas - adversárias) / (minhas + adversárias)
-            Peso w1 = 1.0  → métrica base, sempre relevante
+# Onde:
+#     f1(s) = Diferença de peças normalizada
+#             f1 = (minhas - adversárias) / (minhas + adversárias)
+#             Peso w1 = 1.0  → métrica base, sempre relevante
 
-    f2(s) = Mobilidade relativa (número de jogadas disponíveis)
-            f2 = (mob_minha - mob_adv) / (mob_minha + mob_adv + ε)
-            Peso w2 = 3.0  → mobilidade é crítica no meio-jogo;
-                             ter mais opções evita posições forçadas
+#     f2(s) = Mobilidade relativa (número de jogadas disponíveis)
+#             f2 = (mob_minha - mob_adv) / (mob_minha + mob_adv + ε)
+#             Peso w2 = 3.0  → mobilidade é crítica no meio-jogo;
+#                              ter mais opções evita posições forçadas
 
-    f3(s) = Controle de cantos | Controle de bordas
-            cantos: peso altíssimo (capturam definitivamente)
-            bordas: peso médio (estáveis, difíceis de reverter)
-            Peso w3 = 5.0  → cantos são irreversíveis e dominantes;
-                             literatura de Othello confirma superioridade
+#     f3(s) = Controle de cantos | Controle de bordas
+#             cantos: peso altíssimo (capturam definitivamente)
+#             bordas: peso médio (estáveis, difíceis de reverter)
+#             Peso w3 = 5.0  → cantos são irreversíveis e dominantes;
+#                              literatura de Othello confirma superioridade
 
-Justificativa dos pesos:
-    A hierarquia w3 > w2 > w1 reflete a teoria clássica do Othello:
-    (1) Cantos e bordas determinam o resultado em ~80% dos casos.
-    (2) Mobilidade controla o ritmo do jogo.
-    (3) Diferença bruta de peças é enganosa no início (sacrifícios são táticos).
-"""
+# Justificativa dos pesos:
+#     A hierarquia w3 > w2 > w1 reflete a teoria clássica do Othello:
+#     (1) Cantos e bordas determinam o resultado na maioria dos casos.
+#     (2) Mobilidade controla o ritmo do jogo.
+#     (3) Diferença bruta de peças é enganosa no início (sacrifícios são táticos).
 
 import math
 import time
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional
 
 from othello_game import Othello
 
-
-# ---------------------------------------------------------------------------
-# Pesos da função de avaliação (ver docstring do módulo)
-# ---------------------------------------------------------------------------
-W_PIECE_DIFF  = 1.0   # w1
-W_MOBILITY    = 3.0   # w2
-W_CORNER_EDGE = 5.0   # w3
+# Pesos da função de avaliação (ver início do módulo)
+W_DIFF_PECAS    = 1.0   # w1
+W_MOBILIDADE    = 3.0   # w2
+W_CANTOS_BORDAS = 5.0   # w3
 
 
 class MinMaxAgent:
-    """
-    Agente baseado em Min-Max com Poda Alfa-Beta.
+    # Parâmetros
+    # ----------
+    # jogador : int
+    #     Identidade do agente (1 ou -1).
+    # profundidade : int
+    #     Profundidade máxima de busca (3 a 5 recomendado).
+    # verboso : bool
+    #     Se True, imprime a árvore de decisão.
 
-    Parâmetros
-    ----------
-    jogador : int
-        Identidade do agente (1 ou -1).
-    depth : int
-        Profundidade máxima de busca (3 a 5 recomendado).
-    verbose : bool
-        Se True, imprime a árvore de decisão dos primeiros 2 níveis.
-    """
-
-    def __init__(self, jogador: int, depth: int = 4, verbose: bool = False):
-        assert 3 <= depth <= 5, "Profundidade deve estar entre 3 e 5"
+    def __init__(self, jogador: int, profundidade: int = 4, verboso: bool = False):
+        assert 3 <= profundidade # Profundidade deve ser maior ou igual a 3
         self.jogador  = jogador
-        self.depth   = depth
-        self.verbose = verbose
+        self.profundidade   = profundidade
+        self.verboso = verboso
 
         # Estatísticas internas
-        self.nodes_evaluated = 0
-        self.prune_count     = 0
-        self.last_move_time  = 0.0
+        self.nos_avaliados = 0
+        self.contagem_podas     = 0
+        self.tempo_do_ultimo_movimento  = 0.0
 
-    # ------------------------------------------------------------------
-    # Interface pública
-    # ------------------------------------------------------------------
+    def escolhe_movimento(self, game: Othello) -> Optional[Tuple[int, int]]:
+        # Escolhe a melhor jogada para o estado atual do jogo, com base na árvore.
+        # Retorna None se não houver jogadas disponíveis (passa a vez).
+        # Trata o nó inicial (raiz), sendo ele um de max.
 
-    def choose_move(self, game: Othello) -> Optional[Tuple[int, int]]:
-        """
-        Escolhe a melhor jogada para o estado atual do jogo.
-        Retorna None se não houver jogadas disponíveis (passa a vez).
-        """
         start = time.time()
-        self.nodes_evaluated = 0
-        self.prune_count     = 0
+        self.nos_avaliados = 0
+        self.contagem_podas     = 0
 
-        valido_moves = game.movimentos_validoos(self.jogador)
-        if not valido_moves:
+        movimentos_validos = game.movimentos_validos(self.jogador)
+        if not movimentos_validos:
             return None
 
-        best_move  = None
-        best_value = -math.inf
+        melhor_movimento  = None
+        melhor_valor = -math.inf
         alpha = -math.inf
         beta  =  math.inf
 
-        if self.verbose:
+        if self.verboso:
             print(f"\n{'='*60}")
-            print(f"  MinMax (profundidade={self.depth}) — Jogador {self.jogador}")
-            print(f"  Jogadas válidas: {valido_moves}")
+            print(f"  MinMax (profundidade={self.profundidade}) - Jogador {self.jogador}")
+            print(f"  Jogadas válidas: {movimentos_validos}")
             print(f"{'='*60}")
 
-        for move in valido_moves:
-            child = game.clone()
-            child.executa_jogada(move[0], move[1], self.jogador)
-            child.switch_jogador()
+        for movimento in movimentos_validos:
+            child = game.clonar()
+            child.executa_jogada(movimento[0], movimento[1], self.jogador)
+            child.troca_jogador()
 
-            value = self._minimax(child, self.depth - 1,
-                                  alpha, beta,
-                                  maximizing=False,
-                                  level=1, move_label=str(move))
+            valor = self.minimax(child, self.profundidade - 1, # O nível do raiz é nó de MAX, 
+                                  alpha, beta,                 # o próximo é nó de MIN, com profundidade já ajustada para profundidade - 1.
+                                  maximizando=False,
+                                  level=1, movimento_label=str(movimento))
 
-            if self.verbose:
-                print(f"  [Raiz → {move}] valor propagado = {value:.3f}")
+            if self.verboso:
+                print(f"  [Raiz → {movimento}] valor propagado = {valor:.3f}")
 
-            if value > best_value:
-                best_value = value
-                best_move  = move
+            if valor > melhor_valor:
+                melhor_valor = valor
+                melhor_movimento  = movimento
 
-            alpha = max(alpha, best_value)
+            alpha = max(alpha, melhor_valor)
 
-        self.last_move_time = time.time() - start
+        self.tempo_do_ultimo_movimento = time.time() - start
 
-        if self.verbose:
-            print(f"\n  ✓ Melhor jogada: {best_move}  (valor={best_value:.3f})")
-            print(f"  Nós avaliados : {self.nodes_evaluated}")
-            print(f"  Podas α-β     : {self.prune_count}")
-            print(f"  Tempo         : {self.last_move_time:.4f}s")
+        if self.verboso:
+            print(f"\n   Melhor jogada: {melhor_movimento}  (valor={melhor_valor:.3f})")
+            print(f"  Nós avaliados : {self.nos_avaliados}")
+            print(f"  Podas α-β     : {self.contagem_podas}")
+            print(f"  Tempo         : {self.tempo_do_ultimo_movimento:.4f}s")
 
-        return best_move
+        return melhor_movimento
 
-    # ------------------------------------------------------------------
-    # Algoritmo Min-Max com Poda Alfa-Beta
-    # ------------------------------------------------------------------
-
-    def _minimax(self, game: Othello, depth: int,
+    def minimax(self, game: Othello, profundidade: int, # PAROU AQUI !!!!!!!!!!!!!!!!!!!!!!
                  alpha: float, beta: float,
-                 maximizing: bool, level: int = 0,
-                 move_label: str = "") -> float:
+                 maximizando: bool, level: int = 0,
+                 movimento_label: str = "") -> float:
         """
         Busca recursiva Min-Max com Poda Alfa-Beta.
 
         Parâmetros
         ----------
         game       : estado atual do jogo
-        depth      : profundidade restante
+        profundidade      : profundidade restante
         alpha      : melhor valor garantido para MAX
         beta       : melhor valor garantido para MIN
-        maximizing : True se é o turno do agente (MAX)
-        level      : nível atual (para verbose)
-        move_label : rótulo para exibição na árvore verbose
+        maximizando : True se é o turno do agente (MAX)
+        level      : nível atual (para verboso)
+        movimento_label : rótulo para exibição na árvore verboso
         """
-        jogador_atual = self.jogador if maximizing else -self.jogador
+        jogador_atual = self.jogador if maximizando else -self.jogador
 
         # ----- Caso base: profundidade zero ou estado terminal -----
-        if depth == 0 or game.is_terminal():
-            self.nodes_evaluated += 1
+        if profundidade == 0 or game.verifica_fim():
+            self.nos_avaliados += 1
             return self._evaluate(game)
 
-        valido_moves = game.movimentos_validoos(jogador_atual)
+        movimentos_validos = game.movimentos_validos(jogador_atual)
 
         # ----- Sem jogadas → passa a vez (não troca de nível) ------
-        if not valido_moves:
-            child = game.clone()
-            child.switch_jogador()
-            return self._minimax(child, depth - 1,
-                                 alpha, beta, not maximizing,
+        if not movimentos_validos:
+            child = game.clonar()
+            child.troca_jogador()
+            return self.minimax(child, profundidade - 1,
+                                 alpha, beta, not maximizando,
                                  level + 1, "PASS")
 
         indent = "  " * level
 
         # ----- Nó MAX -----------------------------------------------
-        if maximizing:
+        if maximizando:
             max_val = -math.inf
-            for move in valido_moves:
-                child = game.clone()
-                child.executa_jogada(move[0], move[1], jogador_atual)
-                child.switch_jogador()
+            for movimento in movimentos_validos:
+                child = game.clonar()
+                child.executa_jogada(movimento[0], movimento[1], jogador_atual)
+                child.troca_jogador()
 
-                val = self._minimax(child, depth - 1,
+                val = self.minimax(child, profundidade - 1,
                                     alpha, beta, False,
-                                    level + 1, str(move))
+                                    level + 1, str(movimento))
 
-                if self.verbose:
-                    print(f"{indent}  [MAX nível={level} move={move}] val={val:.3f}  α={alpha:.3f}  β={beta:.3f}")
+                if self.verboso:
+                    print(f"{indent}  [MAX nível={level} movimento={movimento}] val={val:.3f}  α={alpha:.3f}  β={beta:.3f}")
 
                 max_val = max(max_val, val)
                 alpha   = max(alpha, max_val)
 
                 # Poda β
                 if alpha >= beta:
-                    self.prune_count += 1
-                    if self.verbose:
-                        print(f"{indent}  ✂ PODA β em {move}: α({alpha:.3f}) ≥ β({beta:.3f})")
+                    self.contagem_podas += 1
+                    if self.verboso:
+                        print(f"{indent}  ✂ PODA β em {movimento}: α({alpha:.3f}) ≥ β({beta:.3f})")
                     break
 
             return max_val
@@ -196,26 +177,26 @@ class MinMaxAgent:
         # ----- Nó MIN -----------------------------------------------
         else:
             min_val = math.inf
-            for move in valido_moves:
-                child = game.clone()
-                child.executa_jogada(move[0], move[1], jogador_atual)
-                child.switch_jogador()
+            for movimento in movimentos_validos:
+                child = game.clonar()
+                child.executa_jogada(movimento[0], movimento[1], jogador_atual)
+                child.troca_jogador()
 
-                val = self._minimax(child, depth - 1,
+                val = self.minimax(child, profundidade - 1,
                                     alpha, beta, True,
-                                    level + 1, str(move))
+                                    level + 1, str(movimento))
 
-                if self.verbose:
-                    print(f"{indent}  [MIN nível={level} move={move}] val={val:.3f}  α={alpha:.3f}  β={beta:.3f}")
+                if self.verboso:
+                    print(f"{indent}  [MIN nível={level} movimento={movimento}] val={val:.3f}  α={alpha:.3f}  β={beta:.3f}")
 
                 min_val = min(min_val, val)
                 beta    = min(beta, min_val)
 
                 # Poda α
                 if alpha >= beta:
-                    self.prune_count += 1
-                    if self.verbose:
-                        print(f"{indent}  ✂ PODA α em {move}: α({alpha:.3f}) ≥ β({beta:.3f})")
+                    self.contagem_podas += 1
+                    if self.verboso:
+                        print(f"{indent}  ✂ PODA α em {movimento}: α({alpha:.3f}) ≥ β({beta:.3f})")
                     break
 
             return min_val
@@ -244,8 +225,8 @@ class MinMaxAgent:
             f1 = (my_pieces - opp_pieces) / total   # ∈ [-1, 1]
 
         # --- f2: Mobilidade relativa ---
-        my_mob  = len(game.movimentos_validoos(self.jogador))
-        opp_mob = len(game.movimentos_validoos(opp))
+        my_mob  = len(game.movimentos_validos(self.jogador))
+        opp_mob = len(game.movimentos_validos(opp))
         mob_sum = my_mob + opp_mob + 1e-9            # ε evita divisão por zero
         f2 = (my_mob - opp_mob) / mob_sum            # ∈ [-1, 1]
 
@@ -280,8 +261,8 @@ class MinMaxAgent:
         f3 = (corner_score + edge_score) / max_f3
 
         # --- Avaliação terminal: punição/prêmio máximo ---
-        if game.is_terminal():
-            winner = game.get_winner()
+        if game.verifica_fim():
+            winner = game.get_vencedor()
             if winner == self.jogador:
                 return 1e6
             elif winner == opp:
@@ -289,4 +270,4 @@ class MinMaxAgent:
             else:
                 return 0.0
 
-        return W_PIECE_DIFF * f1 + W_MOBILITY * f2 + W_CORNER_EDGE * f3
+        return W_DIFF_PECAS * f1 + W_MOBILIDADE * f2 + W_CANTOS_BORDAS * f3

@@ -223,7 +223,7 @@ class Node:
         self.children = []
         self.visits = 0
         self.wins = 0
-        self.untried_moves = None
+        self.untried_movimentos = None
 
     def uct(self, exploration_weight=1.41):
         if self.visits == 0:
@@ -238,10 +238,10 @@ class MCTSAgent:
         self.num_simulacoes = num_simulacoes
         self.tempo_limite = tempo_limite
 
-    def obter_untried_moves(self, node, game):
-        if node.untried_moves is None:
-            node.untried_moves = game.jogadas_validoas(node.state, node.jogador_turno)
-        return node.untried_moves
+    def obter_untried_movimentos(self, node, game):
+        if node.untried_movimentos is None:
+            node.untried_movimentos = game.jogadas_validoas(node.state, node.jogador_turno)
+        return node.untried_movimentos
 
     def escolher_jogada(self, game):
         root = Node(game.tabuleiro, self.jogador)
@@ -256,20 +256,20 @@ class MCTSAgent:
 
             # 1. Selection
             node = root
-            while not self.obter_untried_moves(node, game) and node.children:
+            while not self.obter_untried_movimentos(node, game) and node.children:
                 node = max(node.children, key=lambda c: c.uct())
 
             # 2. Expansion
-            untried_moves = self.obter_untried_moves(node, game)
-            if untried_moves:
-                jogada = random.choice(untried_moves)
+            untried_movimentos = self.obter_untried_movimentos(node, game)
+            if untried_movimentos:
+                jogada = random.choice(untried_movimentos)
                 novo_estado = game.aplicar_jogada(node.state, jogada[0], jogada[1], node.jogador_turno)
                 prox_jogador = self.oponente if node.jogador_turno == self.jogador else self.jogador
                 if not game.jogadas_validoas(novo_estado, prox_jogador):
                     prox_jogador = node.jogador_turno  # Passa a vez
                 
                 child = Node(novo_estado, prox_jogador, parent=node, jogada=jogada)
-                node.untried_moves.remove(jogada)
+                node.untried_movimentos.removimento(jogada)
                 node.children.append(child)
                 node = child
 
@@ -277,10 +277,10 @@ class MCTSAgent:
             estado_atual = node.state
             jogador_atual_sim = node.jogador_turno
             while not game.verificar_fim(estado_atual):
-                moves = game.jogadas_validoas(estado_atual, jogador_atual_sim)
-                if moves:
-                    move = random.choice(moves)
-                    estado_atual = game.aplicar_jogada(estado_atual, move[0], move[1], jogador_atual_sim)
+                movimentos = game.jogadas_validoas(estado_atual, jogador_atual_sim)
+                if movimentos:
+                    movimento = random.choice(movimentos)
+                    estado_atual = game.aplicar_jogada(estado_atual, movimento[0], movimento[1], jogador_atual_sim)
                 
                 prox = B if jogador_atual_sim == P else P
                 if game.jogadas_validoas(estado_atual, prox):
