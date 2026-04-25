@@ -281,7 +281,7 @@ def run_grid_tournament(tamanho: int = 8,
     print("\n\n" + "="*85)
     print("  TAXA DE VITÓRIA DO MINMAX (%)")
     print("="*85)
-    header = f"{'Prof \ Sims':>12} | " + " | ".join(f"{s:>7}" for s in simulacoes)
+    header = f"{'Prof \\\\ Sims':>12} | " + " | ".join(f"{s:>7}" for s in simulacoes)
     print(header)
     print("-" * len(header))
     for prof in profundidades:
