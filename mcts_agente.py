@@ -94,10 +94,10 @@ class MCTSAgente:
     # jogador       : identidade do agente (1 ou -1)
     # maximo_simulacoes     : número máximo de simulações por jogada
     # maximo_tempo_segundos     : tempo máximo em segundos por jogada
-    # tipo_rollout : 'random' ou 'heuristico_cantos' (prefere cantos)
+    # tipo_rollout : 'random' ou 'heuristica_cantos' (prefere cantos)
 
     def __init__(self, jogador: int, maximo_simulacoes: int = 500,
-                 maximo_tempo_segundos: float = 2.0, tipo_rollout: str = "heuristico_cantos"):
+                 maximo_tempo_segundos: float = 2.0, tipo_rollout: str = "heuristica_cantos"):
         self.jogador      = jogador
         self.maximo_simulacoes    = maximo_simulacoes
         self.maximo_tempo_segundos    = maximo_tempo_segundos
@@ -218,7 +218,7 @@ class MCTSAgente:
                         jogador: int) -> Tuple[int, int]:
         # Política de rollout:
         #     'random'    -> escolha uniforme aleatória
-        #     'heuristico_cantos' -> prefere cantos > bordas > outros
+        #     'heuristica_cantos' -> prefere cantos > bordas > outros
 
         if self.tipo_rollout == "random":
             return random.choice(movimentos)

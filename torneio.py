@@ -107,7 +107,7 @@ def run_tournament(n_jogos: int = 10, tamanho: int = 6,
 
         agente_mm   = MinMaxAgente(jogador=cor_mm,   profundidade=minmax_profundidade)
         agente_mcts = MCTSAgente(jogador=cor_mcts, maximo_simulacoes=mcts_sims,
-                               tipo_rollout="heuristico_cantos")
+                               tipo_rollout="heuristica_cantos")
 
         if cor_mm == 1:
             resultado = executa_jogo(agente_mm, agente_mcts, tamanho=tamanho,
@@ -131,8 +131,10 @@ def run_tournament(n_jogos: int = 10, tamanho: int = 6,
             resultado_str = "Empate"
 
         score = resultado.score
+        jogador_preto = "MM" if cor_mm == 1 else "MCTS"
+        jogador_branco = "MCTS" if cor_mm == 1 else "MM"
         print(f"  Partida {i+1:2d}: {resultado_str:15s}  "
-              f"(preto={cor_mm:+d}->MM, score={score[1]}x{score[-1]}  "
+              f"(preto={jogador_preto} | branco={jogador_branco}, score={score[1]}x{score[-1]}  "
               f"jogadas={resultado.quantidade_movimentos})")
 
     # --- Resumo ---
@@ -169,7 +171,7 @@ def analise_impacto_profundidade(profundidades: List[int] = [3, 4, 5],
         for i in range(n_jogos):
             mm = MinMaxAgente(jogador=1 if i%2==0 else -1, profundidade=profundidade)
             mcts = MCTSAgente(jogador=-1 if i%2==0 else 1,
-                             maximo_simulacoes=300, tipo_rollout="heuristico_cantos")
+                             maximo_simulacoes=300, tipo_rollout="heuristica_cantos")
 
             if mm.jogador == 1:
                 r = executa_jogo(mm, mcts, tamanho=tamanho)
@@ -203,7 +205,7 @@ def analise_impacto_simulacoes(lista_simulacoes: List[int] = [100, 300, 600],
 
         for i in range(n_jogos):
             mcts = MCTSAgente(jogador=1 if i%2==0 else -1,
-                             maximo_simulacoes=sims, tipo_rollout="heuristico_cantos")
+                             maximo_simulacoes=sims, tipo_rollout="heuristica_cantos")
             mm = MinMaxAgente(jogador=-1 if i%2==0 else 1, profundidade=4)
 
             if mcts.jogador == 1:
@@ -222,68 +224,116 @@ def analise_impacto_simulacoes(lista_simulacoes: List[int] = [100, 300, 600],
               f"avg_tempo={media_ms:.1f}ms/jogada")
 
 
+def run_grid_tournament(tamanho: int = 8,
+                        profundidades: List[int] = [3, 4, 5, 6, 7],
+                        simulacoes: List[int] = [100, 200, 400, 600, 800],
+                        n_jogos_por_config: int = 10,
+                        tipo_rollout: str = "heuristica_cantos",
+                        bonus_canto: bool = False):
+    # Torneio em formato de grid comparando N profundidades vs N simulações
+    
+    print("\n" + "="*85)
+    print("  TORNEIO GRID: MinMax vs MCTS")
+    print(f"  Tabuleiro: {tamanho}x{tamanho} | Jogos por config: {n_jogos_por_config}")
+    print(f"  Rollout MCTS: {tipo_rollout}")
+    print("="*85 + "\n")
 
-# Demo de uma única partida com verboso
+    resultados = {}
+    total_configs = len(profundidades) * len(simulacoes)
+    config_atual = 1
 
-def demo_unica_partida(verboso_mm: bool = True) -> None:
-    # Executa uma partida de demonstração exibindo a árvore MinMax.
+    for prof in profundidades:
+        for sim in simulacoes:
+            print(f"[{config_atual:02d}/{total_configs}] Exectuando MinMax(prof={prof}) vs MCTS(sims={sim})...")
+            
+            vitorias_mm = 0
+            tempo_total_mm = []
+            tempo_total_mcts = []
 
-    print("\n" + "="*65)
-    print("  DEMO: Partida com árvore Min-Max visível")
-    print("="*65 + "\n")
+            for i in range(n_jogos_por_config):
+                # Alterna pretas e brancas
+                cor_mm = 1 if i % 2 == 0 else -1
+                cor_mcts = -1 if i % 2 == 0 else 1
 
-    mm   = MinMaxAgente(jogador=1,  profundidade=3, verboso=verboso_mm)
-    mcts = MCTSAgente(jogador=-1, maximo_simulacoes=200, tipo_rollout="heuristico_cantos")
+                agente_mm = MinMaxAgente(jogador=cor_mm, profundidade=prof)
+                agente_mcts = MCTSAgente(jogador=cor_mcts, maximo_simulacoes=sim, tipo_rollout=tipo_rollout)
 
-    jogo = Othello(tamanho=6)
-    print("Estado inicial:")
-    print(jogo)
-    print()
+                if cor_mm == 1:
+                    r = executa_jogo(agente_mm, agente_mcts, tamanho=tamanho, bonus_canto=bonus_canto)
+                    tempo_total_mm.extend(r.tempo_p1)
+                    tempo_total_mcts.extend(r.tempo_p2)
+                else:
+                    r = executa_jogo(agente_mcts, agente_mm, tamanho=tamanho, bonus_canto=bonus_canto)
+                    tempo_total_mm.extend(r.tempo_p2)
+                    tempo_total_mcts.extend(r.tempo_p1)
 
-    numero_movimentos = 0
-    passes_consecutivos = 0
+                if r.vencedor == cor_mm:
+                    vitorias_mm += 1
 
-    while not jogo.verifica_fim():
-        jogador = jogo.jogador_atual
-        agente  = mm if jogador == 1 else mcts
+            resultados[(prof, sim)] = {
+                'vitorias_mm': vitorias_mm,
+                'tempo_mm': statistics.mean(tempo_total_mm)*1000 if tempo_total_mm else 0,
+                'tempo_mcts': statistics.mean(tempo_total_mcts)*1000 if tempo_total_mcts else 0
+            }
+            config_atual += 1
 
-        movimento = agente.escolhe_movimento(jogo)
+    # Exibição dos resultados (Vitórias MinMax)
+    print("\n\n" + "="*85)
+    print("  TAXA DE VITÓRIA DO MINMAX (%)")
+    print("="*85)
+    header = f"{'Prof \ Sims':>12} | " + " | ".join(f"{s:>7}" for s in simulacoes)
+    print(header)
+    print("-" * len(header))
+    for prof in profundidades:
+        row_str = f"{prof:>12} | "
+        valores = []
+        for sim in simulacoes:
+            tx = (resultados[(prof, sim)]['vitorias_mm'] / n_jogos_por_config) * 100
+            valores.append(f"{tx:>6.1f}%")
+        row_str += " | ".join(valores)
+        print(row_str)
 
-        if movimento is None:
-            passes_consecutivos += 1
-            print(f"  Jogador {'MM' if jogador==1 else 'MCTS'} passa a vez.")
-            if passes_consecutivos >= 2:
-                break
-            jogo.troca_jogador()
-            continue
+    # Exibição dos resultados (Tempos MinMax)
+    print("\n\n" + "="*85)
+    print("  TEMPO MÉDIO POR JOGADA: MINMAX (ms)")
+    print("="*85)
+    print(header)
+    print("-" * len(header))
+    for prof in profundidades:
+        row_str = f"{prof:>12} | "
+        valores = []
+        for sim in simulacoes:
+            t = resultados[(prof, sim)]['tempo_mm']
+            valores.append(f"{t:>7.1f}")
+        row_str += " | ".join(valores)
+        print(row_str)
 
-        passes_consecutivos = 0
-        jogo.executa_jogada(movimento[0], movimento[1], jogador)
-        numero_movimentos += 1
-        jogo.troca_jogador()
-
-        label = "MinMax" if jogador == 1 else "MCTS  "
-        print(f"\n  [{numero_movimentos:02d}] {label} (jogador {jogador:+d}) -> {movimento}")
-        print(jogo)
-
-    scores = jogo.get_dicionario_score()
-    vencedor = jogo.get_vencedor()
-    print(f"\n  RESULTADO: ●(MM)={scores[1]}  ○(MCTS)={scores[-1]}  "
-          f"Vencedor={'MinMax' if vencedor==1 else ('MCTS' if vencedor==-1 else 'Empate')}")
+    # Exibição dos resultados (Tempos MCTS)
+    print("\n\n" + "="*85)
+    print("  TEMPO MÉDIO POR JOGADA: MCTS (ms)")
+    print("="*85)
+    print(header)
+    print("-" * len(header))
+    for prof in profundidades:
+        row_str = f"{prof:>12} | "
+        valores = []
+        for sim in simulacoes:
+            t = resultados[(prof, sim)]['tempo_mcts']
+            valores.append(f"{t:>7.1f}")
+        row_str += " | ".join(valores)
+        print(row_str)
 
 
 # Entry point
 
 if __name__ == "__main__":
-    # 1. Demo de uma partida com árvore visível
-    demo_unica_partida(verboso_mm=True)
+    # Torneio Completo em Grid (250 jogos)
+    run_grid_tournament(
+        tamanho=8,                                      # Tamanho 8x8
+        profundidades=[3, 4, 5, 6, 7],                  # Permutações Profundidades MM
+        simulacoes=[100, 200, 400, 600, 800],           # Permutações Simulações MCTS
+        n_jogos_por_config=10,                          # 10 Jogos para cada de 25 configs = 250 jogos
+        tipo_rollout="heuristica_cantos",               # Fácil de trocar: "random" ou "heuristica_cantos"
+        bonus_canto=False
+    )
 
-    # 2. Torneio principal (10 partidas)
-    run_tournament(n_jogos=10, tamanho=6, minmax_profundidade=4,
-                   mcts_sims=300, bonus_canto=False)
-
-    # 3. Análise de profundidade do MinMax
-    analise_impacto_profundidade(profundidades=[3, 4, 5], n_jogos=6)
-
-    # 4. Análise de simulações do MCTS
-    analise_impacto_simulacoes(lista_simulacoes=[100, 300, 600], n_jogos=6)

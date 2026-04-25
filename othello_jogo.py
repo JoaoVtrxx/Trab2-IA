@@ -2,7 +2,7 @@
 
 # Representação do tabuleiro:
 #    0  = célula vazia
-#    1  = peça do jogador 1 (preto)
+#   +1  = peça do jogador 1 (preto)
 #   -1  = peça do jogador 2 (branco)
 
 import numpy as np
@@ -188,7 +188,7 @@ class Othello:
 
     def __str__(self) -> str: 
         # '__str__' faz com que sempre que o objeto seja convertido para string (ex: print(jogo)) ele retorne a representação do tabuleiro
-        simbolos = {0: ".", 1: "●", -1: "○"}
+        simbolos = {0: ".", 1: "○", -1: "●"}
         linhas = []
         header = "  " + " ".join(str(i) for i in range(self.tamanho))
         linhas.append(header)

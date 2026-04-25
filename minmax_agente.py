@@ -86,25 +86,26 @@ class MinMaxAgente:
             print(f"  MinMax (profundidade={self.profundidade}) - Jogador {self.jogador}")
             print(f"  Jogadas válidas: {movimentos_validos}")
             print(f"{'='*60}")
+            print(f"[Raiz - MAX] Alfa={alfa:.3f} Beta={beta:.3f}")
 
         for movimento in movimentos_validos:
             filho = jogo.clonar()
             filho.executa_jogada(movimento[0], movimento[1], self.jogador)
             filho.troca_jogador()
 
-            valor = self.minimax(filho, self.profundidade - 1, # O nível do raiz é nó de MAX (jogo atual, em que o jogador precisa jogar), 
-                                  alfa, beta,                  # o próximo é nó de MIN, com profundidade já ajustada para profundidade - 1.
+            valor = self.minmax(filho, self.profundidade - 1,
+                                  alfa, beta,
                                   maximizando=False,
                                   level=1, movimento_label=str(movimento))
-
-            if self.verboso:
-                print(f"  [Raiz -> {movimento}] valor propagado = {valor:.3f}")
 
             if valor > melhor_valor:
                 melhor_valor = valor
                 melhor_movimento  = movimento
 
             alfa = max(alfa, melhor_valor)
+            
+            if self.verboso:
+                print(f"  <- Retorno de {movimento}: val={valor:.3f} | [Estado Raiz MAX] Alfa={alfa:.3f} Beta={beta:.3f}")
 
         self.tempo_do_ultimo_movimento = time.time() - start
 
@@ -116,7 +117,7 @@ class MinMaxAgente:
 
         return melhor_movimento
 
-    def minimax(self, jogo: Othello, profundidade: int,
+    def minmax(self, jogo: Othello, profundidade: int,
                  alfa: float, beta: float,
                  maximizando: bool, level: int = 0,
                  movimento_label: str = "") -> float:
@@ -132,12 +133,24 @@ class MinMaxAgente:
         # level           : nível atual (para verboso)
         # movimento_label : rótulo para exibição na árvore verboso
 
+        identar = "  " * level
+        tipo_no = "MAX" if maximizando else "MIN"
+
         jogador_atual = self.jogador if maximizando else -self.jogador
 
         # Caso base: profundidade zero (chegou na folha) ou jogo terminou (sem mais jogadas)
         if profundidade == 0 or jogo.verifica_fim():
             self.nos_avaliados += 1
-            return self.avaliacao_posicao(jogo)
+            val = self.avaliacao_posicao(jogo)
+            if self.verboso:
+                end_razao = "Profundidade=0" if profundidade == 0 else "Fim de jogo"
+                motivo = f"nível={level} movimento={movimento_label}"
+                print(f"{identar}[FOLHA {motivo} | {end_razao}] val={val:.3f}")
+            return val
+        
+        if self.verboso:
+            motivo = "Raiz" if level == 0 else f"{tipo_no} nível={level} movimento={movimento_label}"
+            print(f"{identar}[{motivo}] Alfa={alfa:.3f} Beta={beta:.3f}")
 
         movimentos_validos = jogo.movimentos_validos(jogador_atual)
 
@@ -145,7 +158,7 @@ class MinMaxAgente:
         if not movimentos_validos:
             filho = jogo.clonar()
             filho.troca_jogador()
-            return self.minimax(filho, profundidade - 1,
+            return self.minmax(filho, profundidade - 1,
                                  alfa, beta, not maximizando, # Inverte o maximizando
                                  level + 1, "PASS")
 
@@ -159,15 +172,15 @@ class MinMaxAgente:
                 filho.executa_jogada(movimento[0], movimento[1], jogador_atual)
                 filho.troca_jogador()
 
-                valor = self.minimax(filho, profundidade - 1,
+                valor = self.minmax(filho, profundidade - 1,
                                     alfa, beta, False,
                                     level + 1, str(movimento))
 
-                if self.verboso:
-                    print(f"{identar}  [MAX nível={level} movimento={movimento}] val={valor:.3f}  Alfa={alfa:.3f}  Beta={beta:.3f}")
-
                 valor_maximo = max(valor_maximo, valor)
                 alfa   = max(alfa, valor_maximo)
+
+                if self.verboso:
+                    print(f"{identar}<- Retorno de {movimento}: val={valor:.3f} | [Estado MAX nível={level}] Alfa={alfa:.3f}  Beta={beta:.3f}")
 
                 # Poda Beta
                 if alfa >= beta:
@@ -186,15 +199,15 @@ class MinMaxAgente:
                 filho.executa_jogada(movimento[0], movimento[1], jogador_atual)
                 filho.troca_jogador()
 
-                valor = self.minimax(filho, profundidade - 1,
+                valor = self.minmax(filho, profundidade - 1,
                                     alfa, beta, True,
                                     level + 1, str(movimento))
 
-                if self.verboso:
-                    print(f"{identar}  [MIN nível={level} movimento={movimento}] val={valor:.3f}  Alfa={alfa:.3f}  Beta={beta:.3f}")
-
                 valor_minimo = min(valor_minimo, valor)
                 beta    = min(beta, valor_minimo)
+
+                if self.verboso:
+                    print(f"{identar}  <- Retorno de {movimento}: val={valor:.3f} | [Estado MIN nível={level}] Alfa={alfa:.3f}  Beta={beta:.3f}")
 
                 # Poda Alfa
                 if alfa >= beta:
