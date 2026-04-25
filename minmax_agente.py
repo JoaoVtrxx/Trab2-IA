@@ -10,17 +10,17 @@
 
 #     f2(s) = Mobilidade relativa (número de jogadas disponíveis)
 #             f2 = (mob_minha - mob_adv) / (mob_minha + mob_adv + ε)
-#             Peso w2 = 3.0  -> mobilidade é crítica no meio-jogo;
+#             Peso w2 = 15.0 -> mobilidade é crítica no meio-jogo;
 #                              ter mais opções evita posições forçadas
 
 #     f3(s) = Controle de cantos
 #             cantos: peso altíssimo (capturam definitivamente)
-#             Peso w3 = 5.0  -> cantos são irreversíveis e dominantes;
+#             Peso w3 = 50.0 -> cantos são irreversíveis e dominantes;
 #                              literatura de Othello confirma superioridade
 
 #     f4(s) = Controle de bordas
 #             bordas: peso médio (estáveis, difíceis de reverter)
-#             Peso w4 = 2.0  -> bordas são importantes mas não tanto quanto cantos
+#             Peso w4 = 5.0  -> bordas são importantes mas não tanto quanto cantos
 
 # Justificativa dos pesos:
 #     A hierarquia w3 > w2 > w4 > w1 reflete a teoria clássica do Othello:
@@ -37,9 +37,9 @@ from othello_jogo import Othello
 
 # Pesos da função de avaliação (ver início do módulo)
 W_DIFF_PECAS    = 1.0   # w1
-W_MOBILIDADE    = 3.0   # w2
-W_CANTOS        = 5.0   # w3
-W_BORDAS        = 2.0   # w4
+W_MOBILIDADE    = 15.0  # w2
+W_CANTOS        = 50.0  # w3
+W_BORDAS        = 5.0   # w4
 
 
 class MinMaxAgente:
