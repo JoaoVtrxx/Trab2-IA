@@ -97,7 +97,7 @@ class MCTSAgente:
     # tipo_rollout : 'random' ou 'heuristica_cantos' (prefere cantos)
 
     def __init__(self, jogador: int, maximo_simulacoes: int = 500,
-                 maximo_tempo_segundos: float = 2.0, tipo_rollout: str = "heuristica_cantos"):
+                 maximo_tempo_segundos: float = 10000.0, tipo_rollout: str = "heuristica_cantos"):
         self.jogador      = jogador
         self.maximo_simulacoes    = maximo_simulacoes
         self.maximo_tempo_segundos    = maximo_tempo_segundos
