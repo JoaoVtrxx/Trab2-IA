@@ -327,13 +327,23 @@ def run_grid_tournament(tamanho: int = 8,
 # Entry point
 
 if __name__ == "__main__":
-    # Torneio Completo em Grid (250 jogos)
+    # Torneio Completo em Grid (200 jogos)
     run_grid_tournament(
         tamanho=8,                                      # Tamanho 8x8
-        profundidades=[3, 4, 5, 6, 7],                  # Permutações Profundidades MM
+        profundidades=[3, 4, 5, 6],                     # Permutações Profundidades MM
         simulacoes=[100, 200, 400, 600, 800],           # Permutações Simulações MCTS
-        n_jogos_por_config=10,                          # 10 Jogos para cada de 25 configs = 250 jogos
+        n_jogos_por_config=10,                          # 10 Jogos para cada de 20 configs = 200 jogos
         tipo_rollout="heuristica_cantos",               # Fácil de trocar: "random" ou "heuristica_cantos"
         bonus_canto=False
     )
+
+    run_grid_tournament(
+        tamanho=5,                                      # Tamanho 5x5
+        profundidades=[3, 4, 5, 6],                     # Permutações Profundidades MM
+        simulacoes=[100, 200, 400, 600, 800],           # Permutações Simulações MCTS
+        n_jogos_por_config=10,                          # 10 Jogos para cada de 20 configs = 200 jogos
+        tipo_rollout="heuristica_cantos",               # Fácil de trocar: "random" ou "heuristica_cantos"
+        bonus_canto=True
+    )
+
 

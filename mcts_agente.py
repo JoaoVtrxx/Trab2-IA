@@ -226,8 +226,8 @@ class MCTSAgente:
         # Heurística simples: prioriza cantos e bordas
         tamanho = jogo.tamanho
         cantos = {(0, 0), (0, tamanho-1), (tamanho-1, 0), (tamanho-1, tamanho-1)}
-        bordas   = {(r, c) for r in range(tamanho) for c in range(tamanho)
-                   if r == 0 or r == tamanho-1 or c == 0 or c == tamanho-1}
+        bordas   = {(l, c) for l in range(tamanho) for c in range(tamanho)
+                   if l == 0 or l == tamanho-1 or c == 0 or c == tamanho-1}
 
         movimentos_cantos = [m for m in movimentos if m in cantos]
         if movimentos_cantos:
