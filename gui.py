@@ -25,9 +25,9 @@ import queue
 import statistics
 from typing import Optional, List, Tuple, Dict
 
-from othello_game import Othello
-from minmax_agent import MinMaxAgent
-from mcts_agent import MCTSAgent
+from othello_jogo import Othello
+from minmax_agente import MinMaxAgente
+from mcts_agente import MCTSAgente
 
 
 # ── Paleta de cores ──────────────────────────────────────────────────────────
@@ -537,10 +537,10 @@ class OthelloGUI:
     def _criar_agente(self, tipo: str, jogador: int,
                       prof: int, sims: int):
         if tipo == "MinMax":
-            return MinMaxAgent(jogador=jogador, profundidade=prof)
+            return MinMaxAgente(jogador=jogador, profundidade=prof)
         else:
-            return MCTSAgent(jogador=jogador, max_sims=sims,
-                             rollout_type="heuristic")
+            return MCTSAgente(jogador=jogador, maximo_simulacoes=sims,
+                              tipo_rollout="heuristica_cantos")
 
     def _nova_partida_silenciosa(self):
         self.tamanho = 6
