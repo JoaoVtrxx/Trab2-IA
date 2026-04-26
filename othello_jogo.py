@@ -19,7 +19,7 @@ class Othello:
 #    tamanho : int
 #        Tamanho do tabuleiro (tamanho x tamanho). Default = 6.
 #    bonus_canto : bool
-#        Se True, cantos valem 3× na contagem final.
+#        Se True, cantos valem 3x na contagem final.
 #        Extensões obrigatórias: (1) Tabuleiro dinâmico (2) Pontuação diferenciada.
 
     def __init__(self, tamanho: int = 6, bonus_canto: bool = False):

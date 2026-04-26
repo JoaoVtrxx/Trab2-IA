@@ -105,7 +105,7 @@ class MinMaxAgente:
             alfa = max(alfa, melhor_valor)
             
             if self.verboso:
-                print(f"  <- Retorno de {movimento}: val={valor:.3f} | [Estado Raiz MAX] Alfa={alfa:.3f} Beta={beta:.3f}")
+                print(f"<- Retorno de {movimento}: val={valor:.3f} | [Estado Raiz MAX] Alfa={alfa:.3f} Beta={beta:.3f}")
 
         self.tempo_do_ultimo_movimento = time.time() - start
 
@@ -207,7 +207,7 @@ class MinMaxAgente:
                 beta    = min(beta, valor_minimo)
 
                 if self.verboso:
-                    print(f"{identar}  <- Retorno de {movimento}: val={valor:.3f} | [Estado MIN nível={level}] Alfa={alfa:.3f}  Beta={beta:.3f}")
+                    print(f"{identar}<- Retorno de {movimento}: val={valor:.3f} | [Estado MIN nível={level}] Alfa={alfa:.3f}  Beta={beta:.3f}")
 
                 # Poda Alfa
                 if alfa >= beta:
